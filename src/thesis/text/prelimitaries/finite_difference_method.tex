@@ -1,0 +1,442 @@
+\chapter{Finite Difference Method}
+
+In various industrial and scientific areas, the understanding of dynamic processes is essential.
+A process is dynamic when it constantly changes and evolves.
+In general, most dynamic processes are complicated.
+Most of them, therefore, don't have any analytical solutions.
+Hence different numerical methods were created to approximate the solution.
+One of such methods is the Finite Difference Method (FDM).
+The FDM approximates the solution for problems, which involves differential equations.
+
+\section{Differential Equations}
+
+The derivative of the function is one of the most basic operations of calculus.
+The intuition behind it is that it expresses the change rate of the original function at each point.
+
+\begin{definition}[Ordinary derivative]
+ Let \(f\) be a real function of a real variable defined in the neighbourhood of the point \(x_0\). The value of the following limit (if it exists and is finite)
+ \begin{equation}
+ \lim_{x \to x_0} \frac{f(x) - f(x_0)}{x - x_0}
+ \end{equation}
+is the derivative of the function \(f\) at the point \(x_0\). It is written as \(f'(x)\) \cite{OrdinaryDerivative}.
+\end{definition}
+
+Most processes include multiple variables, therefore a function of a single variable is not sufficient to describe the process.
+The definition of the function and the derivative of the function can be extended to work with the multiple variables.
+
+\begin{definition}[Multivariate function]
+ A mapping f: \(\Bbb{R}^n \to \Bbb{R}\) is a real function of \(n\) real variables.
+\end{definition}
+
+The derivative of the multivariate function must be taken for function variables.
+It expresses the change rate of selected variables assuming that all other variables are fixed, i.e. they are constant.
+
+\begin{definition}[Partial derivative]
+ Let \(f\) be a real function of \((x_0, x_1, ... , x_n)\) real variables defined in the neighbourhood of the point \(a = (a_0, a_1, ... , a_n)\).
+ Then the partial derivative of the first order with the respect to the variable \(x_i\) is the value
+ \begin{equation}
+ \lim_{x_i \to a_i} \frac{f(x_0, \dots , x_i, \dots, x_n) - f(x_0, \dots , a_i, \dots, x_n)}{x_i - a_i}
+ \end{equation}
+ if the limit exists. It is written as \(\frac{\partial f}{\partial x_i}\) \cite{PartialDerivative}.
+\end{definition}
+
+\newpage
+
+\begin{definition}[Differential equation]
+ A differential equation is an equation containing the derivatives of one or more unknown functions (or dependent variables), for one or more independent variables \cite{zill2012first}.
+\end{definition}
+
+\begin{definition}[Partial differential equation]
+ A differential equation is partial if it contains partial derivatives of one or more unknown functions for two or more variables \cite{zill2012first}.
+\end{definition}
+
+\section{Numerical Grids}
+
+The FDM uses numerical grids to discretize continuous PDEs.
+A grid is a geometric entity defined in the geometric space.
+The most common geometric space is the Euclidean.
+One of the characteristics of the geometric space is its dimensionality.
+Informally, the dimension represents a minimum number of parameters to identify the geometric entity.
+
+The grid is formed by covering the \(n\)-dimensional space with the \(n\)-dimensional geometric entities.
+The geometric entities are polyhedrons, polygons, line segments and vertices, which represent three, two, one and zero-dimensional entities accordingly.
+Informally, the \(n\)-dimensional geometric entity is formed by the closed arrangement of entities of lower dimensions.
+For example, the cube is formed by 8 vertices, 12 edges and 6 faces or the square is formed by 4 vertices and 4 edges.
+A numerical grid uniquely identifies its entities using coordinates, i.e. defines a coordinate system.
+Depending on the numerical the method grid must identify components of entities.
+For example, the 3-dimensional grid formed by 3-dimensional cubes must uniquely identify the edges of each cube.
+
+Grids can be classified as structured or unstructured, orthogonal or non-orthogonal.
+The grid is structured if each grid entity has a consistent number of adjacent entities, otherwise, it is unstructured.
+Structured grids have simple indexing, therefore the entity address in memory can be often calculated in a constant time.
+Unstructured grids have complex indexing of their entities, therefore the entity address in memory must be additionally stored.
+The grid is orthogonal if all grid lines intersect at a right angle, otherwise, it is non-orthogonal.
+
+One of the elementary grid types is a structured orthogonal grid formed by covering the \(n\)-dimensional space with the \(n\)-dimensional hypercubes.
+Such grids use a Cartesian coordinate system to identify their entities.
+The Cartesian coordinate system identifies points by the pair of numerical coordinates.
+The coordinate origin is the intersection of the oriented orthogonal lines and is defined with the \((0, \dots,0)\) coordinate pair.
+
+The FDM replaces the continuous domain with the grid.
+The example of the two-dimensional grid, where \(n\) is the width of the grid and \(m\) is the height of the grid, is in Figure \ref{FDM-2D-grid}.
+The grid entities are the vertices identified with the \((i,j)\)-coordinates.
+The \(h_x\) and \(h_y\) determine the spacing between vertices in the grid.
+
+\import{text/imgs}{fdm_grid}
+
+\section{Finite Difference Method}
+
+Most of the physical processes can be represented as the system of PDEs or ODEs in a continuous domain.
+The process of solving PDEs using FDM consists of 2 steps.
+The first step is the discretization of the continuous PDEs using numerical grids.
+As a result, each continuous differential equation can be approximated as the set of the difference equations for each entity.
+The second step is to solve the obtained system of algebraic equations \cite{roychowdhury-2020}.
+
+\subsection{Taylor series}
+
+The FDM process obtains the set of difference equations using Taylor series expansion.
+
+\begin{definition}[Taylor polynomial]
+ Let \(f\) be a real function of a real variable and \(f\) is n-times differentiable at the point \(x_0\).
+ Then there exists exactly one polynomial \(T_{n, a}\) of degree at most \(n\) such that
+ \begin{equation}
+ T_{n, x_0}^{(k)}(x_0) = f^{(k)}(x_0) \text{, } \forall k = 0, 1, \dots, n.
+ \end{equation}
+ The polynomial \(T_{n, x_0}(x)\) is the \(n\)-th Taylor's polynomial of function \(f\) expanded about the point \(x_0\) and has the following form
+ \begin{equation}
+ T_{n, x_0}(x) = \sum_{k=0}^{n} \frac{(x - x_0)^k}{k!} f^{(k)}(x_0).
+ \end{equation}
+\end{definition}
+
+For further steps, the alternative form of the Taylor polynomial can be obtained by substitution \(h = x - x_0\) and \(x = x_0 + h\).
+The Taylor polynomial transforms into the next equation:
+
+\begin{equation} \label{TailorFN}
+ T_{n, x_0}(x_0 + h) = \sum_{k=0}^n \frac{h^k}{k!} f^{(k)}(x_0) = f(x_0) + \sum_{k=1}^{n} \frac{h^k}{k!} f^{(k)}(x_0).
+\end{equation}
+
+\begin{definition}[Taylor formula]
+ Let \(f\) be a real function of a real variable and \(f\) is \(n\)-times differentiable at the point \(x_0\).
+ Let \( \forall x \in D(f) \) be \(R_{n, a}(x) = f(x) - T_{n, a}(x)\), then the relation
+ \begin{equation}
+ f(x) = T_{n, a}(x) + R_{n, a}(x)
+ \end{equation}
+ is the Taylor formula and the \(R_{n,a}(x)\) is the n-th remainder \cite{TaylorFormula}.
+\end{definition}
+
+\begin{definition}[Langrange's form of remainder]
+ Let \(f\) be a real function of real variable and function \(f\) is \((n+1)\)-times differentiable on the interval containing \(x_0\) and \(x\).
+ Then the remainder \(R_{n,a}(x)\) can be expressed as follows
+ \begin{equation}
+ R_{n,x_0}(x) = \frac{ f^{(n+1)}(\xi) } { (n + 1)! } (x-x_0)^{n + 1}
+ \end{equation}
+ where \(\xi\) depends on \(x\) and \(n\) and \(\xi\) lies between \(x_0\) and \(x\).
+ This form is called \(n\)-th Langrange's form of the remainder.
+\end{definition}
+
+In the following text, the main requirement on the function \(f\) is that it has \(n\)-th derivative on some open interval, which contains \(x\) and \(x_0\).
+To not repeat it, the function of the differentiability class is defined in the following way.
+
+\begin{definition}[The function of differentiability class]
+ Let \(f\) be a real function of real variable and \(n \ge 0\).
+ The function \(f\) is of differentiability class \(n\) on the interval \((a, b)\) if and only if it has continuos \(0\)-, \(1\)-, \(\dots\), \(n\)-th derivatives on the interval \((a, b)\).
+ It is written using the following notation.
+
+ \begin{equation}
+ f \in C^n(a, b)
+ \end{equation}
+
+ The function \(f\) of differentiability class \(n\) on any interval containing \(x_0, x_1, \dots\) points is written using the following notation.
+
+ \begin{equation}
+ f \in C^n[x_0, x_1, \dots]
+ \end{equation}
+\end{definition}
+
+In Section \ref{sec:deriv-approx}, the Lagrange's form of the remainder will be approximated using the theorem \ref{Approx}.
+
+\begin{theorem} \label{Approx}
+ Let \(f \in C^{n+1}[x_0, x]\), then the Langrange's form of remainder is at most of order \((x - x_0)^{n+1}\) or
+ \begin{equation}
+ R_{n, x_0}(x) = O((x - x_0) ^{ n + 1 }).
+ \end{equation}
+\end{theorem}
+
+\begin{proof}
+ The \(n\)-th Lagrange's form of the remainder is the following.
+
+ \begin{equation}
+ R_{n,x_0}(x) = \frac{ f^{(n+1)}(\xi) } { (n + 1)! } (x-x_0)^{n + 1}
+ \end{equation}
+
+ To prove the theorem it is enough to show, that the absolute value of the remainder is upper bounded with the constant multiple of the function \((x - x_0)^{n+1}\).
+
+ \begin{equation}
+ \exists c \in \Bbb{R}^+ \text{, } \exists n_0 \in \Bbb{N}^+ \text{, } \forall n \ge n_0 \text{: } \big | R_{n, x_0}(x) \big | \le c \big | (x - x_0)^{n+1} \big |
+ \end{equation}
+
+ Function \(f\) has continous \((n+1)\)-th derivative on the interval between \(x_0\) and \(x\), therefore its values can be upper-bounded with the constant.
+
+ \begin{equation}
+ \exists c \in \Bbb{R}^+, \big | f^{(n+1)}(\xi) \big | \le c
+ \end{equation}
+
+ In the end, it is enough to show, that the value of the remainder is at most of the order of the \((x - x_0)^{n+1}\).
+
+ \begin{equation}
+ \bigg | R_{n,x_0}(x) \bigg | = \bigg | \frac{ f^{(n+1)}(\xi) } { (n + 1)! } (x-x_0)^{n + 1} \bigg | \le \frac{c}{(n+1)!} \bigg | (x-x_0)^{n + 1} \bigg | \le k \big | (x-x_0)^{n+1} \big |, k \in \Bbb{R}^+
+ \end{equation}
+\end{proof}
+
+\subsection{Derivatives approximations} \label{sec:deriv-approx}
+
+Let \(f \in C^2[x, x + h]\), then first Taylor polynomial expanded at point \(x\) at \(x + h\) is
+
+\begin{equation} \label{Taylor1}
+ f(x + h) = T_{1,x}(x + h) + R_{1, x}(x + h) = f(x) + h f'(x) + R_{1, x}(x + h).
+\end{equation}
+
+The solution for \(f'(x)\) from (\ref{Taylor1}) is the
+
+\begin{equation}
+ f'(x) = \frac{f(x + h) - f(x)}{h} - \frac{R_{1, x}(x + h)}{h}.
+\end{equation}
+
+Following the theorem (\ref{Approx}) the first derivative approximation of function \(f\) using Taylor expansion is
+
+\begin{equation} \label{Approx1}
+ f'(x) \approx \underbrace{\frac{f(x + h) - f(x)}{h}}_{d(x)} + O(h).
+\end{equation}
+
+The equation (\ref{Approx1}) is called the forward difference approximation.
+The first-order derivative of function \(f\) is approximated as the sum of the difference term \(d(x)\) and the error term \(O(h)\).
+In practice, only the difference term \(d(x)\) is calculated.
+The difference term \(d(x)\) is the slope of the function \(f\).
+
+Let \(f \in C^2[x, x - h]\), then first Taylor polynomial expanded at point \(x\) at \(x - h\) is
+
+\begin{equation} \label{Taylor2}
+ f(x - h) = f(x) - h f'(x) + R_{1, x}(x - h).
+\end{equation}
+
+The solution from (\ref{Taylor2}) is the following.
+
+\begin{equation} \label{Approx2}
+ f'(x) = \frac{f(x) - f(x - h)}{h} + \frac{R_{1, x}(x - h)}{h} \approx \frac{f(x) - f(x - h)}{h} + O(h)
+\end{equation}
+
+As a result, the first-order derivative is approximated with values of the function at \(x\) and \(x - h\) points.
+The equation (\ref{Approx2}) is called the backward difference approximation.
+
+Let \(f \in C^2[x, x + h, x - h]\) and let substract (\ref{Taylor2}) from (\ref{Taylor1}).
+
+\begin{equation}
+ f(x + h) - f(x - h) = 2 h f'(x) + R_{1, x}(x + h) - R_{1, n}(x - h)
+\end{equation}
+
+\begin{equation} \label{Approx3.parent}
+ f'(x) = \frac{f(x + h) - f(x - h)}{2h} + \frac{R_{1, x}(x + h) - R_{1, x}(x - h)}{2h} \approx \frac{f(x + h) - f(x - h)}{2h} + O(h)
+\end{equation}
+
+In addition to this, it can be shown, that the error term in the same finite difference approximation is \(O(h^2)\) for \(f \in C^3[x, x - h, x +h]\).
+To show this the second Taylor polynomial expanded at \(x_0\) must be considered and a similar procedure must be performed.
+It is omitted from the text because of its repetitiveness.
+Overall, the final approximation for \(f \in C^3[x, x - h, x +h]\) is known as the central difference approximation and has the following form.
+
+\begin{equation} \label{Approx3}
+ f'(x) \approx \frac{f(x + h) - f(x - h)}{2h} + O(h^2)
+\end{equation}
+
+The best approximation is achieved when the error term is minimal.
+The error term is minimized by reducing the grid step size \(h\).
+However, a smaller step size implicates a larger number of grid entities to cover the same domain, i.e. it is more computationally expensive.
+The error term in the forward and backward difference approximations scales linearly.
+In comparison the error term in the central difference approximation has asymptotic quadratic scaling, e.g. if the grid step size is divided by two, the error term is proportionally divided by 4.
+Hence, the central difference approximation is asymptotically more accurate, than the forward and backward difference approximations.
+
+Let \(f \in C^3[x, x + h, x + 2h]\), then the forward difference approximation of the second-order derivative is obtained by considering the second Taylor polynomial of function \(f\) expanded at \(x\) at \(x+h\) and \(x + 2h\).
+
+\begin{equation} \label{Taylor3.1}
+ f(x + h) = f(x) + h f'(x) + \frac{h^2}{2!} f^{(2)}(x) + R_{2, x}(x + h)
+ \end{equation}
+
+\begin{equation} \label{Taylor3.2}
+ f(x + 2h) = f(x) + 2 h f'(x) + \frac{4 h^2}{2!} f^{(2)}(x) + R_{2, x}(x + 2h)
+\end{equation}
+
+Then the equation (\ref{Taylor3.1}) is multiplied by 2 and substracted from the equation (\ref{Taylor3.2}).
+
+\begin{equation}
+ -2 f(x + h) + f(x + 2h) = -f(x) + h^2 f^{(2)}(x) + R_{2, x}(x + 2h) - 2 R_{2, x}(x + h)
+\end{equation}
+
+\begin{equation} \label{Approx4}
+ \begin{aligned}
+ f^{(2)}(x) =& \frac{f(x + 2h) - 2 f(x + h) + f(x)}{h^2} + \frac{R_{2, x}(x + 2h) - 2 R_{2, x}(x + h)}{h^2} \\
+ \approx& \frac{f(x + 2h) - 2 f(x + h) + f(x)}{h^2} + O(h)
+ \end{aligned}
+\end{equation}
+
+The equation (\ref{Approx4}) is the forward difference approximation for the second-order derivative of function \(f\).
+The backward difference approximation can be obtained by performing similar steps for \(f \in C^3[x, x - h, x - 2h]\).
+
+Let \(f \in C^3[x, x - h, x + h]\), then the central difference approximation of the second-order derivative is obtained by considering the second Taylor polynomial of function \(f\) expanded at \(x\) at \(x - h\) and \(x + h\).
+
+\begin{equation} \label{Taylor4.1}
+ f(x + h) = f(x) + h f'(x) + \frac{h^2}{2!} f^{(2)}(x) + R_{2, x}(x + h)
+ \end{equation}
+
+\begin{equation} \label{Taylor4.2}
+ f(x - h) = f(x) - h f'(x) + \frac{h^2}{2!} f^{(2)}(x) + R_{2, x}(x - h)
+\end{equation}
+
+Then by adding the equation (\ref{Taylor4.1}) to the equation (\ref{Taylor4.2}) the following result is received.
+
+\begin{equation}
+ f(x + h) + f(x - h) = 2 f(x) + h^2 f^{(2)}(x) + R_{2, x}(x + h) + R_{2, x}(x - h)
+\end{equation}
+
+\begin{equation} \label{Approx5.parent}
+ \begin{aligned}
+ f^{(2)}(x) = & \frac{f(x + h) - 2 f(x) + f(x - h)}{h^2} + \frac{R_{2, x}(x + h) + R_{2, x}(x - h)}{h^2} \\
+ \approx& \frac{f(x + h) - 2 f(x) + f(x - h)}{h^2} + O(h)
+ \end{aligned}
+\end{equation}
+
+In addition to this, it can be shown, that the error term in the same finite difference approximation is \(O(h^2)\) for \(f \in C^4[x, x - h, x + h]\).
+To show this the second Taylor polynomial expanded at \(x_0\) must be considered and a similar procedure must be performed.
+It is omitted from the text because of its repetitiveness.
+Overall, the final approximation for \(f \in C^4[x, x - h, x +h]\) is known as the central difference approximation of the second-order derivative and has the following form.
+
+\begin{equation} \label{Approx5}
+ f^{(2)}(x) \approx \frac{f(x + h) - 2 f(x) + f(x - h)}{h^2} + O(h^2)
+\end{equation}
+
+The approximations of the higher-order derivatives can be obtained by performing similar procedures.
+For multivariate functions, the partial derivatives are approximated the same way.
+In Section \ref{sec:heat-equation}, it will be shown by applying the FDM to obtain the solution of the heat equation.
+
+\section{Convolution}
+
+\begin{definition}[Convolution operator]
+ Let f and g be real functions of \(n\) real variables. Then the function h defined by
+ \begin{equation}
+ h(\mathbf{x}) = \int_{\Bbb{R}^n} f(\mathbf{x} - \mathbf{y}) g(\mathbf{y}) d\mathbf{y} = \int_{\Bbb{R}^n} f(\mathbf{y}) g(\mathbf{x} - \mathbf{y}) d\mathbf{y}
+ \end{equation}
+ is the convolution of functions f and g. It is denoted by symbol \(f * g\) \cite{Convolution}.
+\end{definition}
+
+The convolution operator has a wide range of applications in statistics, signal and image processing and other areas.
+In most cases there is no analytical solution for the integral, therefore different numerical methods are applied to approximate convolution operation.
+One of the ways to approximate the integral is by using the Rectangle rule \cite{ConvolutionTheorem}.
+
+At first, to calculate the convolution operator using the Rectangle rule the finite intervals over which the operator is calculated should be chosen.
+Let \(\forall i \in \{1, \dots, n\} [a_i, b_i]\) be a finite intervals over which the convolution operator is calculated.
+Then the integral is discretized on the chosen intervals.
+The Rectangle rule explicitly states, that there must be equal spacing between the discrete observations.
+In other words, the interval is split into equal subintervals and the length of the subinterval can be calculated in the following way.
+Let \(M_i\) represents the number of the subintervals of the interval \([a_i, b_i]\).
+Then the length of subinterval \(h_i\) is the following
+
+\begin{equation}
+  h_i = \frac{b_i - a_i}{M_i}.
+\end{equation}
+
+Finally, the discrete convolution obtained with the Rectangle rule has the following form
+
+\begin{equation}
+  (\prod_{k=1}^{n} h_k) * \sum_{i_1 = 1}^{M_1} \dots \sum_{i_n = 1}^{M_n} f(\mathbf{x} - (\mathbf{a} + \mathbf{h} \mathbf{i})) g(\mathbf{a} + \mathbf{h} \mathbf{i}).
+\end{equation}
+
+The \(\mathbf{a}\) or \((a_1, \dots, a_n)\) is the vector with the beginnings of the intervals and has the following form.
+The \(\mathbf{i}\) or \((i_1 - 1, \dots, i_n - 1)\) is the index vector, which represents the indices of the sums.
+The \(\mathbf{h}\) or \((h_1, \dots, h_n)\) represents the vector of subinterval lengths.
+
+In practice, \(f\) is chosen the way, that it has a significant value near the coordinate origin and fastly converges to zero by moving away from it.
+Therefore, these functions can be numerically approximated with a small number of discrete observations and they are called kernels.
+The \(g\) function represents the data on which the convolution is calculated.
+Because of the data function finite representation, the convolution operator is undefined for boundary elements.
+This is called a boundary value problem.
+There are several methods to address the boundary value problem.
+One of the simplest solutions for the boundary value problem is to consider, that the data function is zero when it is undefined.
+
+\section{Heat equation} \label{sec:heat-equation}
+
+\begin{definition}[Heat equation]
+For the space \(\Omega \subset \Bbb{R}^n \) the heat equation is the PDE defined as
+\begin{equation}
+ \begin{aligned}
+ \frac{\partial u(\boldsymbol x, t)}{\partial t} &= \Delta u(\boldsymbol x, t) \text{ on } \Omega \times (0, T\rangle, \\
+ u(\boldsymbol x, t) &= u_0(\boldsymbol x) \text{ on } \Omega, \\
+ u(\boldsymbol x, t) &= g(\boldsymbol x, t) \text{ on } \partial \Omega \times \langle 0, T \rangle,
+ \end{aligned}
+\end{equation}
+where the Laplacean operator \( \Delta\) is defined as
+\begin{equation}
+ \Delta u(\boldsymbol x) = \sum_{i = 1}^{n} \frac{\partial^2 u(\boldsymbol x)}{\partial x_i^{2}}.
+\end{equation}
+
+The function \(u_0(\boldsymbol x)\) is the initial condition and the function \(g(\boldsymbol x, t)\) is the Dirichlet boundary condition defined on the \(\partial \Omega\).
+\end{definition}
+
+The heat equation describes the diffusion of heat in material over time.
+The initial condition \(u_0(x)\) describes the initial state of the process.
+The boundary condition denotes, how the PDE is solved on the boundary of the space \(\Omega\).
+The selection of the appropriate boundary condition is essential for obtaining the correct numerical solution of the PDE.
+
+Beforehand only the approximations for the derivatives of single-variable functions were obtained.
+The same principles apply to partial derivatives to a single variable.
+In the heat equation, there are two kinds of derivatives.
+The time derivative \(\partial t\) denotes the change of the function over time.
+The space derivative \(\partial x^2\) denotes the change of the function to the space.
+To obtain a numerical solution both time and space derivatives are approximated independently.
+
+The first step in the FDM is to replace the continuous domain with the finite difference grid.
+The \(h_{i}\) denotes the space step of the grid along \(i\)-th axis and \(\Delta t\) is the time step for the numerical method.
+The second step is to obtain difference equations using Taylor series expansion.
+The time derivative difference equation is obtained using forward difference approximation of the first-order derivative (\ref{Approx1}) and is the following.
+
+\begin{equation}
+ \frac{\partial u(\boldsymbol x, t)}{\partial t} \approx \frac{u(\boldsymbol x, t + \Delta t) - u(\boldsymbol x, t) }{\Delta t}
+\end{equation}
+
+The space derivative difference equation is obtained using central difference approximation of the second-order derivative (\ref{Approx5}) and is the following.
+
+\begin{equation}
+ \forall i \in \{1, \dots, n\}: \frac{u(\boldsymbol x, t)}{\partial x_i^2} \approx \frac{u(\boldsymbol x + \boldsymbol h, t) - 2 u(\boldsymbol x, t) + u(\boldsymbol x - \boldsymbol h, t) ) }{h^2_i}, \boldsymbol h = (0, \dots, h_{i}, \dots, 0)
+\end{equation}
+
+By restricting to the \(\Bbb{R}^2\) space the following numerical scheme of the heat equation is obtained.
+
+\begin{equation} \label{NumericScheme1}
+ \frac{\mu_{i,j}^{k+1} - \mu^k_{i,j}}{\Delta t} = \frac{\mu^k_{i+1,j} - 2 \mu^k_{i,j} + \mu^k_{i-1,j}}{h^2_{x}} + \frac{\mu^k_{i,j+1} - 2 \mu^k_{i,j} + \mu^k_{i,j-1}}{h^2_{y}}
+\end{equation}
+
+The \(\mu_{i,j}^k\) is the value of the heat function at the iteration \(k\) with the coordinates \((i,j)\) in the finite difference grid with dimensions \((n,m)\).
+By denoting the \(\mu_{i,j}^{k+1}\) from the equation (\ref{NumericScheme1}) and by adding the initial and boundary conditions the numerical scheme for the heat equation using FDM is the following.
+
+\begin{equation}
+\begin{aligned}
+ \mu_{i,j}^{k+1} &= \mu_{i,j}^{k} + \frac{\Delta t}{h_x^2} (\mu^k_{i+1,j} - 2 \mu^k_{i,j} + \mu^k_{i-1,j}) + \frac{\Delta t}{h_y^2} (\mu^k_{i,j+1} - 2 \mu^k_{i,j} + \mu^k_{i,j-1}),& \\
+ \mu_{i,j}^{0} &= u((i,j), 0), &\text{ (Initial condition)}\\
+ \mu_{p,q}^k &= g((p,q), k), \forall p, q: p \in \{0, n-1\}, q \in \{0, \dots, m-1\}, &\text{(Horizontal boundaries)} \\
+ \mu_{p,q}^k &= g((p,q), k), \forall p, q: p \in \{0, \dots, n-1\}, q \in \{0, m-1\}. &\text{(Vertical boundaries)}\\
+\end{aligned}
+\end{equation}
+
+The numerical scheme starts at iteration \(k = 0\) with the initial values of the function.
+Then it calculates the \(\mu^{k+1}_{i,j}\) using the values from the \(k\)-th iteration until it reaches the final iteration defined by the user.
+
+In the \(\Bbb{R}^2\) space the heat equation has the following pseudo-analytical solution \cite{EvansPDE}.
+
+\begin{equation} \label{GaussianKernel}
+u(\boldsymbol x, t) = \int_{\Bbb{R}^2} G_{\sqrt{2t}}(\boldsymbol x - \boldsymbol y) u_0(\boldsymbol y) \text{dy} = \big(G_{\sqrt{2t}} * u_0\big)(\mathbf{x})
+\end{equation}
+
+The \(G_\sigma\) is the Gaussian kernel, which has the following form.
+
+\begin{equation}
+ G_\sigma = \frac{1}{2\pi\sigma^2}\text{exp}(-\frac{|\boldsymbol x|^2}{2\sigma^2})
+\end{equation}
+
+The pseudo-analytical solution can be interpreted as the smoothing of the heat function by the Gaussian kernel.

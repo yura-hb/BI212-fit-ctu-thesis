@@ -1,0 +1,35 @@
+\usetikzlibrary{calc}
+\usetikzlibrary{chains, decorations.pathreplacing, positioning}
+
+\definecolor{decoration}{RGB}{0, 122, 195} %CTU blue
+\definecolor{heading}{RGB}{0, 122, 195}
+\definecolor{headbackgroundgray}{RGB}{199, 219, 241} %light blue
+\definecolor{backgroundgray}{RGB}{199, 219, 241} %CTU light blue
+\definecolor{headgray}{rgb}{0.50,0.50,0.51}
+\definecolor{enumgray}{RGB}{0, 122, 195} %CTU blue
+
+\begin{figure}[!ht]
+  \centering
+  \caption{Thread loads of two-dimensional convolution }
+  \label{fig:convolve-mem}
+  \begin{tikzpicture}[scale=0.9]
+
+  \tikzstyle{annot} = [text width=4em, text centered]
+
+  \draw[step=1cm,black,very thin] (0,0) -- (0,5);
+  \draw[step=1cm,black,very thin] (0,5) -- (5,5);
+  \draw[step=1cm,black,very thin] (0,0) -- (5,0);
+  \draw[step=1cm,black,very thin] (5,0) -- (5,5);
+
+  \draw[step=1cm,black,very thin] (2.5,0) -- (2.5,5);
+  \draw[step=1cm,black,very thin] (0,2.5) -- (5,2.5);
+
+  \node[label] at (1.25,3.75) {(1)};
+  \node[label] at (3.75,3.75) {(2)};
+  \node[label] at (1.25,1.25) {(3)};
+  \node[label] at (3.75,1.25) {(4)};
+
+  \end{tikzpicture}
+
+  \label{FDM-2D-grid}
+\end{figure}

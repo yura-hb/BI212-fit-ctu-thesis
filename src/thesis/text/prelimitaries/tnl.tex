@@ -1,0 +1,105 @@
+\chapter{Template Numerical Library}
+
+Writing optimal CUDA programs isn't trivial.
+Firstly, the CUDA programming model provides only intrinsic operations.
+Secondly, GPUs computation capability has a wide application in different areas, but there aren't any basic data containers, e.g. arrays, matrices, vectors and others.
+Finally, the developer should determine manually the best launch configuration of the kernel, data alignment in GPU memory, memory access patterns, and thread synchronization within the kernel as these all affect performance.
+However, it isn't necessary to build everything from scratch.
+There are a lot of open-source libraries, which aim to simplify CUDA programming.
+One of such libraries is Template Numerical Library \cite{TNL}.
+TNL provides developers with the essential building blocks for high-performance computing on modern hardware, including CPUs, GPUs and distributed systems.
+Furthermore, TNL actively uses template metaprogramming, therefore the user can tune most of the components for its needs.
+
+\section{Arrays and vectors}
+
+Template Numerical Library offers a large collection of generic data structures.
+\texttt{Array<Value, Device, Index, Allocator>} defined in \texttt{TNL::Containers} namespace is one of them.
+Developers can easily use \texttt{Array} data structure to allocate and prepare memory and transfer it between host and device.
+\texttt{Value} parameter specifies the type of the data stored in the array.
+\texttt{Device} parameter can be specified with \texttt{TNL::Devices::Host} and \texttt{TNL::Devices::Cuda} to declare where data is located.
+\texttt{Index} parameter specifies the index type of the array.
+\texttt{Allocator} parameter specifies the type, which should acquire and release memory.
+The developer can manage memory block contents by using either \texttt{operator[]} or \texttt{operator()}.
+In addition to that, the developer can fill an array with the same value using \texttt{operator=}.
+To transfer data between the host and device the developer must use copy constructors of \texttt{Array} \cite{TNLArray}.
+
+Array data structure manages the ownership of the memory block, i.e. it ensures correct deallocation of it.
+It is non-copyable, therefore each pass by value will result in an expensive deep copy of the memory block.
+To safely pass by value \texttt{Array} data structure allows to create an \texttt{ArrayView} on itself.
+The \texttt{ArrayView} allows accessing the memory block of the \texttt{Array}, but it can't manage it.
+Thus, the developer can perform the same set of operations as the Array, which doesn't manage the original memory block.
+\texttt{ArrayView} consists only of the pointer to the original memory block and its size.
+Thus, it is lightweight and passing by value will result in shallow copy.
+
+\texttt{TNL::Containers::Vector} extends \texttt{Array} data structure and adds the requirement of arithmetic type of \texttt{Value} parameter.
+As a result, it can perform element-wise mathematical operations: \texttt{+=}, \texttt{-=}, \texttt{*=}, \texttt{/=} and \texttt{\%=} \cite{TNLVector}.
+
+\section{Lambdas} \label{sec:lambdas}
+
+TNL offers different generic algorithms and data structures, which can be extended with user-defined functions.
+The most common approach is to specify an anonymous function using lambda expressions.
+Lambda expression constructs a closure, i.e. an unnamed function object, which can capture the environment.
+Under the hood, the C++ compiler for each lambda expression generates a uniquely named structure with \texttt{operator()} containing the body of the lambda.
+For argument-dependent lookup lambda expression type is declared in the smallest block, class or namespace scope, that contains the lambda expression \cite{LambdaCPP}.
+
+CUDA kernel can execute only \texttt{\_\_device\_\_} functions, therefore it can't launch functions generated from lambda expressions, because they represent host code.
+Only with CUDA 7.5 it is possible to declare \texttt{\_\_device\_\_} lambda expressions.
+However, \texttt{\_\_device\_\_} lambda expressions can't be called from a host.
+And in CUDA 8.0 it is possible to specialize \texttt{\_\_host\_\_} and \texttt{\_\_device\_\_} lambda expressions, which the host and device can call \cite{CUDA8}.
+TNL aims to provide unified interface for both CPU and GPU, therefore, both host and device must call the lambda expression function.
+Hence, TNL introduces \texttt{\_\_cuda\_callable\_\_} specifier, which is the macro on \texttt{\_\_host\_\_} and \texttt{\_\_device\_\_} specifiers.
+
+\begin{definition}[Extended lambda expression]
+  Lambda expression is extended, when it is annotated with either \texttt{\_\_device\_\_} or with both \texttt{\_\_host\_\_} and \texttt{\_\_device\_\_} specifiers
+  and defined in the immediate or block nested scope of the \texttt{\_\_host\_\_} or \texttt{\_\_host\_\_} \texttt{\_\_device\_\_} function \cite{CUDAProgramming}.
+\end{definition}
+
+CUDA programming model restricts extended lambda expressions.
+Firstly, an extended lambda expression must capture the environment by value.
+Secondly, an extended lambda expression can't be generic.
+There are more restrictions and the whole list of them can be found in \cite{CUDAProgramming}.
+
+\texttt{\_\_host\_\_} \texttt{\_\_device\_\_} lambda expressions may reduce the performance when they are called from host.
+The main reason is that the CUDA compiler wraps them in the \texttt{std::function}.
+The host compiler may not be able to inline the body of such lambda expression.
+Thus, it will be evaluated as a separate function call \cite{CUDA8}.
+
+\section{Parallel for loops}
+
+Loop-level parallelism is one of the simplest forms of parallelism.
+For loop can be executed in parallel when there are no dependencies between iterations in the loop.
+TNL implements a parallel for loop algorithm for both CPU and GPU and provides a simple way to use it.
+The implementation of parallel for loop uses OpenMP library on the host and uses CUDA on the device.
+
+To use the algorithm the developer must call the \texttt{exec()} function in the \texttt{ParallelFor\{1|2|3\}D <Device, Mode>} defined in the \texttt{TNL::Algorithms} namespace.
+\texttt{Device} template parameter of the structure declares the device, which should run the algorithm.
+\texttt{Mode} template parameter can be either \texttt{SynchronousMode} or \texttt{AsynchronousMode}.
+In the synchronous mode, the program will return only after successful algorithm execution.
+In the asynchronous mode, the program will receive control immediately.
+\texttt{exec()} function must be called with the \texttt{[start, end)} iteration range for each dimension and the body function object to execute in parallel.
+The algorithm will call body function with the iteration index of parallel for loop.
+Optionally, additional parameters can be passed to the \texttt{exec()} function, which will be passed to the body function call \cite{TNLForLoop}.
+
+\newpage
+
+\section{Parallel reduction}
+
+The reduction operator produces a single value by applying a binary operator to the input sequence.
+Since the binary operator can be any binary function, the reduction operator has a wide range of applications.
+Its sequential implementation is simple though the parallel one is more complicated.
+TNL implements parallel reduction for both CPU and GPU and provides a simple way to use it.
+The implementation of parallel for loop uses OpenMP library on the host and uses CUDA on the device.
+
+The developer must call \texttt{reduce()} function defined in the \texttt{TNL::Algorithms} namespace to perform parallel reduction.
+The \texttt{reduce()} function can be specialized with the \texttt{Device}, \texttt{Index}, \texttt{Result}, \texttt{Fetch} and \texttt{Reduce} template parameters.
+\texttt{Device} template parameter declares the device to execute parallel reduction.
+\texttt{Index} declares the sequence index type and \texttt{Result} declares the result type.
+\texttt{Fetch} declares the function type, which fetches the element at the index from the input sequence.
+\texttt{Reduce} declares a function type, which applies a binary operator on the two values.
+TNL defines a set of the most common \texttt{Reduce} function objects.
+Some of which are \texttt{TNL::Plus}, \texttt{TNL::Minus}, \texttt{TNL::Multiply} and \texttt{TNL::Divide}.
+The \texttt{reduce} function must be called with the start and the end indices of the input range, fetch and reduce function objects and the identity element.
+The identity element is the neutral element, which can't affect the result of the reduce operation.
+
+Sometimes, with the reduce operator we need to determine the index of the element in the sequence.
+Therefore, TNL offers \texttt{reduceWithArgument()} function, which will call \texttt{Reduce} function with the reference on the accumulator and the current index with the index of the variable and variable itself \cite{TNLParallelReduce}.

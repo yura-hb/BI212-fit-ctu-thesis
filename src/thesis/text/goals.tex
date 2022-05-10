@@ -1,0 +1,42 @@
+
+\chapter*{Goals}\addcontentsline{toc}{chapter}{Goals}\markboth{Goals}{Goals}
+
+The main goal of the thesis is to improve the implementation of structured orthogonal grids in the Template Numerical Library (TNL).
+The list of issues that will be addressed as a part of the improvement in the grid implementation in the TNL is the following:
+
+\begin{enumerate}
+ \item TNL implements one-dimensional, two-dimensional and three-dimensional orthogonal grids, but each of them is implemented independently of the other.
+       However, some grid properties don’t depend on the grid dimension.
+       Therefore, the goal is to extract dimension-independent properties of the grid to reduce the repetitiveness in the codebase.
+ \item The main operation performed on the grid is the parallel traversal of the grid entities.
+       The current grid implementation in the TNL uses separate classes to define the traversal operation.
+       Later, the TNL team introduces the optimal parallel for loop algorithm.
+       The issue is that the traverse classes implement a similar algorithm for the traverse, which makes their implementation redundant.
+       The goal is to update traverser classes to use the parallel algorithm.
+ \item Various numerical solvers will use grid classes to perform computations.
+       The usage of grid classes may add significant run-time overhead to the numerical solver.
+       Therefore, the goal is to estimate the overhead added by the grid environment.
+       To measure it, the numerical solver of the heat equation using the Finite Difference Method (FDM) based on the grid class will be implemented.
+       It will be compared with the numerical solver, which solves the same equation, but uses only primitive functions provided by the TNL.
+ \item Current grid implementation in the TNL is poorly tested.
+       In addition to that, it must be noted that the TNL actively uses template metaprogramming.
+       The compiler uses templates to generate specific data types at compile time, i.e. the source code will be generated and compiled by the end users of the library.
+       As a result, different specializations of the templates must be tested because of the error possibility in the generated code.
+       The goal is to cover the grid classes with the unit tests.
+\end{enumerate}
+
+The compulsory goal of the thesis is to learn CUDA programming.
+It will be achieved by implementing CUDA kernels for the convolution operator.
+There are several requirements for the implementation:
+
+\begin{enumerate}
+ \item The convolution operator must be optimal for the small kernels.
+ \item The convolution operator must support one-, two- and three-dimensional kernels.
+ \item The convolution operator must be generic, i.e. the user can define any convolution mask.
+\end{enumerate}
+
+To fulfill the requirements I will implement different versions of the convolution operator.
+The goal is to learn CUDA primitives and to understand their effect on the computation efficiency, therefore not all variants of the convolution operator algorithms will be implemented.
+
+Finally, the heat equation has a pseudo-analytical solution, which uses the convolution operator.
+The goal is to use the implementation of the convolution operator and show the similarity between the numerical solution obtained with FDM and the pseudo-analytical solution to the heat equation.

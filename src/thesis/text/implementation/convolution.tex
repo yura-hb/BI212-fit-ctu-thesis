@@ -1,0 +1,200 @@
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+
+\chapter{Convolution} \label{sec:convolution}
+
+The implementation of the convolution operator was a preliminary to adding the algorithm to the TNL.
+Hence, it is designed as several benchmarks, which measure the speed of the convolution operator in multiple configurations.
+In addition to this, the implementation has a flexible design, which can be expanded with additional test cases and versions of the algorithm.
+According to the goals of the thesis, the convolution operator must be generic, therefore the following interface was chosen.
+
+\begin{listing}[!h]
+\begin{minted}{c++}
+static void execute( const Vector< Index >& dimensions,
+                     const Vector< Index >& kernelSize,
+                     FetchData&& fetchData,
+                     FetchBoundary&& fetchBoundary,
+                     FetchKernel&& fetchKernel,
+                     Convolve&& convolve,
+                     Store&& store );
+\end{minted}
+\end{listing}
+
+The \texttt{dimensions} and \texttt{kernelSize} parameters represent the size of the domain and the kernel accordingly.
+The \texttt{fetchData} and \texttt{fetchKernel} parameters are lambda functions, which must return the data and kernel element from index on the input.
+For boundary elements, the convolution operator will call \texttt{fetchBoundary} lambda function with the index of the boundary element.
+To define the convolution operation the user must specify \texttt{convolve} lambda function, which will be called with the accumulator, data element and the kernel.
+The lambda function must return the result of the operation.
+Finally, the \texttt{store} lambda function will be called with the index and the result of the convolution.
+
+\section{Basic implementation}
+
+The first step in the CUDA programming model is to define the thread hierarchy.
+In our implementation, each thread calculates the convolution for one data index.
+All threads are aligned in the thread blocks with the kernel dimensions and blocks are aligned in the grid with data dimensions.
+The main advantages of this implementation are the simplicity and the minimal number of idle threads on the data boundaries.
+The main disadvantage is that the size of the thread block is limited with the 1024 threads, therefore the volume of the kernel is limited to 1024 elements.
+Additionally, the block size is not aligned with the warp size, which may reduce performance.
+However, the alignment to warp size may significantly increase the number of boundary entities reads and significantly reduce performance.
+
+The implementation of the one-dimensional convolution is the following.
+
+\begin{listing}[!h]
+\caption{The basic implementation of one-dimensional discrete convolution}
+\begin{minted}{c++}
+Index ix = threadIdx.x + blockIdx.x * blockDim.x;
+Real result = 0;
+
+for( Index i = -kernelRadius; i <= kernelRadius; i++ ) {
+  Index elementIndex = i + ix, kernelIndex = i + kernelRadius;
+
+  result = convolve( result,
+    elementIndex < 0 || elementIndex >= endX ?
+      fetchBoundary( elementIndex ) : fetchData( elementIndex ),
+    fetchKernel( kernelIndex ) );
+ }
+
+store( ix, result );
+\end{minted}
+\label{lst:for-convolve}
+\end{listing}
+
+There are two significant problems with such implementation.
+Firstly, each thread reads the kernel, data and boundary from the global memory.
+However, each thread uses the same kernel and some of them share data and boundary elements.
+The second problem is the ternary if-clause inside for loop, which causes branch divergence.
+The GPU will process each branch serially, which will significantly reduce performance.
+
+\section{Shared Memory}
+
+My implementation uses shared memory to address the problem of repeated reads from the global memory.
+The shared memory is allocated dynamically as a one-dimensional memory block, which every thread can access.
+
+\subsection{Kernel in the shared memory}
+
+The first optimization is to store the kernel in the shared memory, because it is the same for every thread.
+The kernel will always fit in the shared memory because its volume is limited to 1024 elements.
+
+The implementation must be updated in the following way to support shared memory.
+At the beginning of the thread block execution, each thread reads the value of the kernel at thread index and stores the value in the shared block.
+Then it waits for all other threads read in the thread block.
+Finally, instead of the \texttt{fetchKernel}, the convolution will access elements from the shared memory.
+
+\begin{listing}[!h]
+  \caption{The implementation of the kernel load to the shared memory for one-dimensional discrete convolution}
+  \begin{minted}{c++}
+Real* shared = TNL::Cuda::getSharedMemory< Real >();
+
+// The size of the block is equal to the kernel size
+shared[ threadIdx.x ] = fetchKernel( threadIdx.x );
+
+__syncthreads();
+\end{minted}
+\end{listing}
+
+\subsection{Data in the shared memory}
+
+The other optimization is to store the data block needed for convolution in the shared memory.
+The main reason is that it is significantly larger than the kernel, therefore fewer reads from the global memory are needed.
+The size \(\sigma\) of the data block in the shared memory can be calculated in the following way.
+
+\begin{equation}
+  \sigma = \prod_{i=1}^n (2k_i - 1)
+\end{equation}
+
+where \(n\) is the dimension of the kernel and \(k_i\) is the size of the kernel along \(i\)-th dimension.
+It is important to understand if the data fits in the shared memory.
+For the purpose of calculations, the size \(\sigma\) of the data block can be approximated in the following way.
+
+\begin{equation} \label{eq:approx-data-size}
+  \sigma = \prod_{i=1}^n (2 k_i - 1) \le \prod_{i=1}^n  2k_i \le 2^n * 1024
+\end{equation}
+
+where \(n\) is kernel dimension.
+Using the observation from the equation (\ref{eq:approx-data-size}), maximal sizes of the data blocks are listed in Table \ref{tab:data-block-approx}.
+
+\begin{table}[!ht]
+\begin{tabularx}{\textwidth}{Y|Y|Y|Y|Y}
+\textbf{Dimension} & \textbf{Type} & \textbf{Elements\textsuperscript{1}} & \textbf{Size\textsuperscript{2}} & \textbf{Fit\textsuperscript{3}} \\
+\hline \hline
+1 & float & 2048 & 8192 & yes\\
+1 & double & 2048 & 16384 & yes\\
+2 & float & 4096 & 16384 & yes \\
+2 & double & 4096 & 32768 & yes \\
+3 & float & 8192 & 32768 & yes \\
+3 & double & 8192 & 65536 & no\textsuperscript{4}
+\end{tabularx}
+\caption{The table of required shared memory size for storing data block}
+\label{tab:data-block-approx}
+\setlength\belowcaptionskip{-20pt}
+\end{table}
+\footnotetext[1]{Maximal number of elements in data block}
+\footnotetext[2]{Maximal size in bytes}
+\footnotetext[3]{The value is calculated by assuming the size of shared memory is 32 KB}
+\footnotetext[4]{The data block will fit, if L1 cache is disabled}
+
+Based on the observations the data block will fit in the shared memory in most cases.
+To load data block into shared memory each thread splits data into \(2^n\) tiles, where the \(n\) is the dimension of the convolution.
+The example of the tiling is presented in Figure \ref{fig:convolve-mem}.
+Each thread loads one value for each group and stores it in the shared memory.
+
+\import{text/imgs}{convolution_memory}
+
+Each data block has the size of the kernel, therefore the data is stored by adjusting the index by the dimensions of the block.
+
+\begin{listing}[!h]
+  \caption{The implementation of the data load to the shared memory for one-dimensional discrete convolution}
+  \begin{minted}{c++}
+Index ix = threadIdx.x + blockIdx.x * blockDim.x;
+Index x = ix - kernelWidth / 2;
+
+shared[ threadIdx.x ] = x < 0 || x >= endX ? fetchBoundary(x) : fetchData(x);
+
+x = ix + kernelWidth / 2;
+
+shared[ threadIdx.x + blockDim.x ] = x < 0 || x >= endX ?
+  fetchBoundary(x) : fetchData(x);
+
+__syncthreads();
+if( ix >= endX ) return;
+\end{minted}
+\end{listing}
+
+Storing data in the shared memory solved the problem with the branch divergence.
+Additionally, the for loop from Code Listing \ref{lst:for-convolve}, line 3 can be unrolled with the pragma directive.
+
+\begin{listing}[!h]
+  \caption{The implementation of one-dimensional discrete convolution with data in the shared memory}
+  \begin{minted}{c++}
+#pragma unroll
+for( Index i = 0; i < kernelWidth; i++ ) {
+  Index elementIndex = i + threadIdx.x;
+  result = convolve( result, data[ elementIndex ], fetchKernel(i) );
+}
+\end{minted}
+\end{listing}
+
+\subsection{Kernel and data in the shared memory}
+
+Finally, both the kernel and the data block can be stored in the shared memory.
+However, in some cases the GPU must be additionally configured to prefer shared memory over L1 cache.
+Then the maximal size of the shared memory block is 48 KB.
+By adding the kernel elements the following table is obtained.
+
+\begin{table}[!ht]
+\begin{tabularx}{\textwidth}{Y|Y|Y|Y|Y}
+\textbf{Dimension} & \textbf{Type} & \textbf{Elements\textsuperscript{1}} & \textbf{Size\textsuperscript{2}} & \textbf{Fit\textsuperscript{3}} \\
+\hline \hline
+1 & float & 3072 & 12288 & yes\\
+1 & double & 3072 & 24576 & yes\\
+2 & float & 5120 & 20480 & yes \\
+2 & double & 5120 & 40960 & yes \\
+3 & float & 9216 & 36864 & yes \\
+3 & double & 9216 & 73728 & no
+\end{tabularx}
+\caption{The table of required shared memory size for storing data block and kernel}
+\label{tab:data-block-approx2}
+\setlength\belowcaptionskip{-20pt}
+\end{table}
+\footnotetext[1]{Maximal number of elements in data block}
+\footnotetext[2]{Maximal size in bytes}
+\footnotetext[3]{The value is calculated by assuming the size of shared memory is 48 KB}

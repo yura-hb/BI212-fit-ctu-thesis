@@ -1,0 +1,31 @@
+\chapter*{Conclusion}\addcontentsline{toc}{chapter}{Conclusion}\markboth{Conclusion}{Conclusion}
+
+The main goal of the thesis was to improve the implementation of grids in the TNL library.
+With the help of the combinatorics features of the grid data structure and modern C++ language features I significantly reduced the size of the grid codebase.
+In addition to this, the implementation aims to be dimension-agnostic, which leaves open the possibility of implementing grids of higher dimensions.
+I met with the obstacles of lambda expression implementation in the CUDA programming model, which blocked the desire to make the grid entity as lightweight as possible.
+However, C++ 17 standards introduce generic lambdas and I expect that the future versions of CUDA will add support to this feature.
+As a result, the compiler will generate all operations of the grid entity during the compilation phase, which will significantly reduce the runtime overhead added by the grid class.
+
+Then I covered the implementation with unit tests.
+I tried to make them as dimension-agnostic as possible, to follow the design principles of the grid.
+I made them scalable, i.e. it is easy to add different launch configurations and add specific edge cases.
+One of the main operations is the grid traversal.
+I tested it on small and large grids and to reinforce the confidence even more I tested the properties of the traversal operations.
+
+After proper testing, I investigated the overhead added by the grid implementation.
+I implemented simple heat equation solvers and benchmarks to measure it.
+As a result, I found out that the grid overhead wasn't significant in most cases.
+In addition to that, I understood the nature of the overhead and explained it.
+In the end, I updated the design of benchmarks implementation to make it simple to expand them with any implementation.
+
+My compulsory goal was to learn CUDA programming.
+I fulfilled it during the implementation of the convolution operator.
+I tried using different techniques to make it as efficient as possible.
+I compared the most efficient implementation with the others and found out that it was outperforming them.
+In the end, I implemented benchmarks following the same design principles as the heat equation benchmarks.
+Thus, other implementations of the convolution operator can be added to evaluate the performance.
+
+Finally, I compared the convolution operator with the Gaussian kernel and the pseudo-analytical solution to the heat equation.
+I received similar results, which shows the correctness of the pseudo-analytical solution.
+

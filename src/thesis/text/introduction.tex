@@ -1,0 +1,35 @@
+
+\chapter*{Introduction}\addcontentsline{toc}{chapter}{Introduction}\markboth{Introduction}{Introduction}
+
+Grids (or meshes) are essential tools in computer science with a wide variety of applications.
+All of them attempt to discretize a domain based on specific rules for calculations.
+One of the notable members is the orthogonal structured grid.
+Despite its simplicity, its implementation design has a crucial role in computations.
+Poorly designed structured grids result in slow calculations or difficult problem declaration.
+Grids are the main ingredient for the implementation of different numerical methods for solving partial differential equations (PDE).
+And PDEs are ubiquitous in mathematically oriented fields, such as physics and chemistry.
+They are widely used in fluid dynamics and other theoretical and practical fields.
+
+Most numerical methods require performing thousands of iterations which makes them computationally expensive.
+It must be noted, however, that some of them perform the same set of operations simultaneously for each entity in the grid, therefore, they are parallelizable.
+GPUs are excellent for these tasks.
+
+At the beginning of the thesis, the main goals will be outlined.
+
+The theoretical part starts by describing the main components of the graphics processing unit (GPU) hardware architecture.
+In addition to that, the thesis covers the basics of programming for CUDA in C++ and the profiling process of CUDA kernels.
+After this, the thesis concentrates on the description of the Template Numerical Library (TNL).
+CUDA programming model only provides developers with essential primitives needed to create applications for GPUs.
+Therefore, different open-source libraries were developed to simplify programming for CUDA.
+TNL is one such library.
+The theoretical part ends with the description of the finite difference method.
+At first, it defines the essential terms needed for understanding the numerical method.
+Then it describes the process of the finite difference method and applies it to find the solution to the heat equation.
+
+The practical part of the thesis begins with the description of the structured orthogonal grid implementation in the TNL.
+At the end of the grid design description, the thesis covers the process of testing the implementation.
+Then the thesis will describe the implementation of the convolution operator and the techniques used in its implementation on CUDA.
+Afterwards, the thesis will describe the results of the improvements in the TNL library.
+Finally, it will discuss the benchmark results of the heat equation numerical solver.
+Additionally, the heat equation has a pseudo-analytical solution, which uses the convolution operator.
+In the end, the thesis will show the similarities between the heat equation numerical solution and the heat equation pseudo-analytical solution.

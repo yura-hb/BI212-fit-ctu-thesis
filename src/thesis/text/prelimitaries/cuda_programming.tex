@@ -1,0 +1,175 @@
+\chapter{CUDA programming}
+
+% \begin{chapterabstract}
+% All modern programming languages build abstraction layers over hardware microarchitecture.
+% Some go even further and perform various code optimizations to make programs run faster.
+% Thus software development doesn't consider hardware-specific optimizations.
+% In addition to this, they are complex and unnecessary for most projects.
+% However, there are fields, like machine learning, cryptography, graphics and others, that have computationally-heavy tasks.
+% We can reach a significant speed-up either by choosing a better algorithm.
+% But when none exists, we still can significantly reduce runtime by optimizing code for hardware execution!
+% \end{chapterabstract}
+
+Nowadays, computer systems are heterogeneous, i.e. they consist of the central processing unit (CPU) complemented with a graphics processing unit (GPU), each designed and optimized for specific tasks with separate memory spaces and a shared memory bus.
+
+CPU is a complex device with a complex instruction set architecture designed for the operating system's needs \cite{ComputerArchitecture2011}.
+A modern operating system kernel manages hundreds of user threads concurrently by arranging their instructions in heavy kernel threads.
+Then kernel assigns them to the CPU core.
+The parallelism between threads on a single core is achieved by switching between them in short periods of time \cite{ModernOperatingSystems2014}.
+Therefore, to be efficient CPU core must run as many instructions as possible with complex and unpredictable branching.
+To excel at this task CPU core contains specialized circuits, which significantly increase the size of each core on the die.
+Overall, the CPU has a limited number of cores and can run fewer threads concurrently.
+
+In comparison to CPUs, GPUs are designed for data-parallel tasks.
+They are standalone coprocessors, thus they can’t start the execution of tasks.
+GPU cores are simpler than CPU ones, which makes them significantly smaller and allows to increase their count on silicon.
+For example, a modern high-end GPU has 10496 cores \cite{AmpereNVIDIA} and a modern server CPU has only 64 cores \cite{AMDThreadripper}.
+
+\section{Hardware Architecture}
+
+The architecture of the GPU was firstly introduced with the Tesla model in 2006 by Nvidia.
+Since then GPU architecture has significantly evolved to excel at various kinds of tasks, but its main components haven’t changed much \cite{NVIDIAGPUHistory}.
+In system architecture, GPU is a standalone coprocessor, which must schedule and execute workloads defined by the CPU.
+
+\subsection{Workload execution}
+
+GPU architecture is designed around Streaming Multiprocessors (SM).
+Each streaming multiprocessor is built to execute concurrently hundreds of threads.
+The GPU achieves a higher level of parallelisms by increasing the count of the SMs on board.
+Such architecture is easily scalable and allows the execution of thousands of concurrent threads at the same period of time.
+The essential components of the SM are instruction cache, warp scheduler, register files, shared memory/L1 cache and CUDA cores.
+
+The SM creates, manages, schedules and executes threads in groups of 32 parallel threads called warps.
+SM uses a warp scheduler to instantiate, terminate and manage warps concurrently.
+Each warp has a dedicated execution context, which consists of program counters, register file and shared/L1 memory.
+Only one warp is executed at the time.
+The execution context of each warp is persisted on the SM during its lifetime, therefore there is no cost for switching between warps.
+This allows the warp scheduler to efficiently utilize the SM whenever the execution of warp stalls for any reason (memory load, instruction fetch, synchronization and others).
+However, this limits the count of warps managed by the multiprocessor.
+
+Individual thread in a warp starts their execution at the same instruction address, but each of them has an individual instruction counter and register state, therefore they can branch and execute themselves independently \cite{CUDAProgramming}.
+Nvidia calls this single instruction, multiple threads (SIMT) architecture, which is the extension of the single instruction, multiple data (SIMD) system architecture by Flynn’s taxonomy \cite{FlynnTaxonomy}.
+The SIMT architecture can be ignored by the developer, then it will be the same as SIMD architecture.
+However, a significant performance improvement can be achieved by the efficient utilization of it.
+
+To achieve maximal instruction throughput on the warp, each thread in the warp must follow the same execution path.
+When a warp of threads diverges by a different data-dependent conditional path, the warp will execute each path separably by disabling threads on each path.
+This can occur only within a single warp.
+Distinct warps execute independently.
+
+\subsection{Memory architecture}
+
+GPU implements a multi-level memory hierarchy similar to modern CPUs.
+Global memory is DRAM, which is slow and large.
+SM can access global memory with memory transactions of 32-, 64- or 128-bits wide.
+To optimize memory access time GPU architecture uses the principles of spatial locality by implementing a two-level cache.
+GPU hardware tries to group memory accesses in a single cache line of L2 memory.
+L2 cache has a cache line of 128 bits wide and can be accessed by multiple SMs simultaneously.
+
+Each SM has a shared memory and L1 cache.
+The size of both is limited and specified by the GPU architecture.
+Shared memory is programmable, this makes it extremely useful for various use cases.
+It is possible to disable shared memory, and then shared memory will be used as L1 cache.
+Shared memory consists of 32 memory banks, which can be accessed concurrently.
+Each bank has a bandwidth of 32-bits per clock cycle.
+Multiple banks boost the efficient memory bandwidth by a multiple of the memory banks count \cite{CUDAProgramming}.
+The size of the element in the bank can be set either to 32-bits or to 64-bits.
+Each successive word in the shared memory is mapped to the successive memory bank \cite{SharedMemory}.
+The index of the bank for a specific word can be calculated using the next equation:
+
+\[ \text{bank index} = \frac{\text{address of word} - \text{shared memory address}}{\text{bank size}} \mod \text{banks number} \]
+
+When multiple threads in the warp access elements in the same bank, the memory conflict arises.
+Hardware will serialize memory requests as if no conflicts occur.
+This reduces memory bandwidth by a factor of colliding memory requests.
+Bank conflict doesn’t occur when multiple threads in a warp read from the same address.
+Programs should be carefully designed in order to avoid bank conflicts.
+
+
+\section{CUDA}
+
+Compute Unified Device Architecture (CUDA) is a general-purpose parallel computing platform and programming model that leverages the parallel compute engine in Nvidia GPU.
+CUDA API is available for multiple languages, such as C, C++, Fortran, Python, Java and others.
+In addition to this, Nvidia provides developers with a vast collection of libraries for different applications.
+The whole documentation for the CUDA platform can be found in \cite{CUDAProgramming}.
+\newpage
+CUDA programming model assumes that the program runs on a heterogeneous system architecture composed of a host and a device \cite{CUDAProgramming}.
+The host represented by the CPU performs sequential code, whereas the device represented by the GPU executes tasks specified by the host.
+Host and device have their own managed memory space.
+In addition to that, there is no binary compatibility between instructions compiled for each device.
+
+The CUDA toolkit provides developers with NVCC to compile programs defined in C++.
+NVCC aims to hide the process of compiling CUDA source code from the developers.
+NVCC is a compiler-driver, therefore it requires a host C++ compiler to compile the host source code \cite{NVIDIANVCC}.
+
+
+\subsection{Kernel thread hierarchy}
+
+CUDA programming model allows developers to specialize C++ functions called kernels.
+To specify kernel developers must add \texttt{\_\_global\_\_} specifier in function declaration.
+Inside the kernel, the developer can launch other kernels or call functions specified with \texttt{\_\_device\_\_} specifier.
+Each kernel is executed in parallel by CUDA threads.
+CUDA thread is the lowest level of abstraction for doing computations and memory operations.
+CUDA API exposes a two-level thread hierarchy.
+At the bottom of the hierarchy is a thread.
+A group of threads organized in one, two or three dimensions forms a block and a group of blocks organized in one, two or three dimensions forms a grid.
+To launch a kernel the programmer must specify the number of thread blocks and the number of threads per block.
+
+When a kernel is launched, the GPU block scheduler enumerates and assigns a thread block to available SMs.
+When the SM receives a thread block, it partitions it into successive warps with the first warp containing a thread with zero index \cite{CUDAProgramming}.
+A single thread block can be processed only by a single multiprocessor, therefore there is a limit of 1024 threads per thread block.
+The size of the warp of 32 threads suggests that multiprocessors can achieve full utilization when thread blocks have the size of a multiple of 32.
+When the thread block finishes its execution, the next thread block is assigned to the freed multiprocessor.
+From the host's perspective the kernel is launched asynchronously, i.e. the host doesn't wait for kernel execution.
+To wait for kernel execution the developer must call \texttt{cudaDeviceSynchronize()} function.
+
+In the SIMT architecture threads can cooperate by using either global or shared memory.
+However, threads don't run the same way physically.
+Thus, read-after-write, write-after-read or write-after-write hazards may occur, when multiple threads access the same address in global or shared memory.
+To mitigate hazards within a thread block the developer can specify a synchronization point by calling \texttt{\_\_syncthreads()} function.
+Whenever a thread arrives at the synchronization point, it waits until all threads within a thread block reach the same point \cite{CUDAProgramming}.
+
+CUDA programming model implements support for vector types.
+One of such types is \texttt{dim3}, which is a vector of 3 integers used to specify dimensions.
+To identify a thread in the thread hierarchy, the programmer can access \texttt{threadIdx}, \texttt{blockIdx}, \texttt{blockDim} and \texttt{gridDim} of \texttt{dim3} type in the kernel code.
+\texttt{threadIdx} identifies a thread inside the thread block.
+\texttt{blockIdx} identifies the block in the grid and \texttt{blockDim} is the dimension of the block.
+\texttt{gridDim} identifies the dimension of the grid in blocks.
+
+One of the most common operations is the mapping of the n-dimensional thread index to index inside the 1-dimensional global memory block.
+This can be performed by the next equations:
+
+\begin{equation}
+\begin{aligned}
+ix =\ & \text{threadIdx}.x + \text{blockIdx}.x * \text{blockDim}.x \\
+iy =\ &\text{threadIdx}.y + \text{blockIdx}.y * \text{blockDim}.y \\
+iz =\ &\text{threadIdx}.z + \text{blockIdx}.z * \text{blockDim}.z \\
+\text{index} =\ &ix\ + iy * \text{blockDim}.x * \text{blockDim}.x\ + \\
+ &iz * \text{blockDim}.x * \text{blockDim}.x * \text{gridDim}.y * \text{blockDim}.y
+\end{aligned}
+\end{equation}
+
+% main.cu
+
+\subsection{Memory}
+
+CUDA assumes that the host and device have different memory spaces.
+CUDA raises an exception when either host or device tries to access the memory space of another.
+The developer can manage memory allocation of CUDA with functions similar to CPU memory management functions (\texttt{malloc}, \texttt{memcpy}, \texttt{free}, …): \texttt{cudaMalloc}, \texttt{cudaMemcpy}, \texttt{cudaFree}.
+\texttt{cudaMemcpy} can transfer memory between host and device global memory.
+
+CUDA programming model allows to allocate shared memory either statically or dynamically.
+The compiler allocates shared memory for all variables declared in the device code with \texttt{\_\_shared\_\_} specifier.
+However, the size of each variable should be known at the compile time.
+To allocate variables in shared memory dynamically they should be declared with \texttt{extern \_\_shared\_\_} keywords.
+Then the size of the shared memory must be specified at the kernel launch.
+However, it is only possible to allocate dynamically 1-dimensional arrays \cite{CUDAProgramming}.
+
+\subsection{Profiling}
+
+CUDA offers different tools to help developers analyze CUDA kernel performance issues.
+NVProf is one such tool.
+It can evaluate the runtime of the CUDA kernels inside the CUDA program.
+The result of the analysis is the list of metrics.
+Metrics extensively characterize the properties of the CUDA program.
+The full list of metrics with their description can be found in \cite{NVProf}.

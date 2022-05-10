@@ -1,0 +1,266 @@
+%% This is the ctufit-thesis example file. It is used to produce theses
+%% for submission to Czech Technical University, Faculty of Information Technology.
+%%
+%% Get the newest version from
+%% https://gitlab.fit.cvut.cz/theses-templates/FITthesis-LaTeX
+%%
+%%
+%% Copyright 2021, Eliska Sestakova and Ondrej Guth
+%%
+%% This work may be distributed and/or modified under the
+%% conditions of the LaTeX Project Public License, either version 1.3
+%% of this license or (at your option) any later version.
+%% The latest version of this license is in
+%%  https://www.latex-project.org/lppl.txt
+%% and version 1.3 or later is part of all distributions of LaTeX
+%% version 2005/12/01 or later.
+%%
+%% This work has the LPPL maintenance status `maintained'.
+%%
+%% The current maintainer of this work is Ondrej Guth.
+%% Contact ondrej.guth@fit.cvut.cz for bug reports.
+%% Alternatively, submit bug reports into the tracker at
+%% https://gitlab.fit.cvut.cz/theses-templates/FITthesis-LaTeX/issues
+%%
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CLASS OPTIONS
+% language: czech/english/slovak
+% thesis type: bachelor/master/dissertation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[english,bachelor,unicode]{ctufit-thesis}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% FILL IN THIS INFORMATION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\ctufittitle{Parallel computations on orthogonal grids on GPU} % replace with the title of your thesis
+\ctufitauthorfull{Yury Hayeu} % replace with your full name (first name(s) and then family name(s) / surname(s)) including academic degrees
+\ctufitauthorsurnames{Hayeu} % replace with your surname(s) / family name(s)
+\ctufitauthorgivennames{Yury} % replace with your first name(s) / given name(s)
+\ctufitsupervisor{Ing. Tomáš Oberhuber, Ph.D.} % replace with name of your supervisor/advisor (include academic degrees)
+\ctufitdepartment{Department of Theoretical Computer Science} % replace with the department of your defence
+\ctufityear{2022} % replace with the year of your defence
+\ctufitdeclarationplace{Prague} % replace with the place where you sign the declaration
+\ctufitdeclarationdate{\today} % replace with the date of signature of the declaration
+\ctufitabstractENG{
+   Different numerical methods are based on structured orthogonal grids due to their simplicity of implementation.
+   The thesis focuses on improving the implementation of structured orthogonal meshes in the Template Numerical Library (TNL).
+   In the TNL the main problem was the tedious usage of the grid entities' traversal operation and the repetitive code base between grids of different dimensions.
+   To resolve these issues I took the advantage of the grid properties, the features of modern C++ and the latest improvements in the TNL.
+   Then the grid implementation was covered with unit tests and the numerical solver of the heat equation using the finite difference method was implemented.
+   In addition to the numerical solution, the heat equation has a pseudo-analytical solution based on the convolution operator.
+   At the end of the thesis, I implemented a convolution operator optimized for GPU and showed the similarity between the numerical and pseudo-analytical solutions.
+}
+\ctufitabstractCZE{
+    Různé numerické metody používají strukturované ortogonální mřízky kvůli jejich jednoduché implementaci.
+    Tato práce se zaměřuje na zdokonalení implementace strukturovaných ortogonálních mřízek v knihovně Template Numerical Library (TNL).
+    Hlavním problémem implementace strukturovaných mřížek v knihovně TNL je obtížné procházení objektů mřížky a opakující se zdrojový kód pro mřížky různých dimenze.
+    K vyřešení těchto problémů jsem využil vlastností mřížky, vlastností moderního jazyka C++ a poslední vylepšení ve knihovně TNL.
+    Následně byla implementace otestována a byl implementován numerický řešič metodou konečných diferencí pro rovnici vedení tepla.
+    Kromě numerického řešení má rovnice vedení tepla i pseudoanalytické řešení založené na operátoru konvoluce.
+    Na závěr práce jsem implementoval operátor konvoluce optimalizovaný pro GPU a ukázal jsem podobnost numerického a pseudo-analytického řešeni.
+}
+\ctufitkeywordsCZE{Strukturované ortogonální mřížky, Metoda konečných differencí, Rovnice vedení tepla, konvoluce, GPU}
+\ctufitkeywordsENG{Structured orthogonal grid, Finite difference method, Heat equation, convolution, GPU}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% END FILL IN
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CUSTOMIZATION of this template
+% Skip this part or alter it if you know what you are doing.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{iftex}[2020/03/06]
+\iftutex % XeLaTeX and LuaLaTeX
+    \RequirePackage{ellipsis}[2020/05/22] %ellipsis workaround for XeLaTeX
+\else
+    \RequirePackage[utf8]{inputenc}[2018/08/11] %this file encoding
+    \RequirePackage{lmodern}[2009/10/30] % vector flavor of Computer Modern font
+\fi
+
+% hyperlinks
+\RequirePackage[pdfpagelayout=TwoPageRight,colorlinks=false,allcolors=decoration,pdfborder={0 0 0.1}]{hyperref}[2020-05-15]
+
+% uncomment the following to hide all hyperlinks
+% \RequirePackage[pdfpagelayout=TwoPageRight,hidelinks]{hyperref}[2020-05-15]
+
+\RequirePackage{pdfpages}[2020/01/28]
+
+\setcounter{secnumdepth}{4} % numbering sections; 4: subsubsection
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CUSTOMIZATION of this template END
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%
+% DEMO CONTENTS SETTINGS
+% You may choose to modify this part.
+%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{dirtree}
+\usepackage{lipsum,tikz}
+\usepackage{csquotes}
+\usepackage[backend=biber, style=iso-numeric]{biblatex}
+\addbibresource{./text/bib-database.bib}
+\usepackage{listings} % typesetting of sources
+\usepackage{amsmath}
+\usepackage{import}
+\usepackage{xparse}
+\usepackage{tikz-3dplot}
+\usepackage{xifthen}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{graphicx}
+\usepackage[valign=c,heightadjust=all]{floatrow}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{afterpage}
+\usepackage{pgfplots}
+
+\DeclareFloatVCode{largevskip}{\vskip 20pt}
+\usepackage{minted} % typesetting of sources
+
+\setcounter{biburllcpenalty}{7000}
+\setcounter{biburlucpenalty}{8000}
+
+%theorems, definitions, etc.
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Tvrzení}
+\newtheorem{corollary}[theorem]{Důsledek}
+\newtheorem{proposition}[theorem]{Návrh}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{definition}
+\newtheorem{example}[theorem]{Příklad}
+\theoremstyle{remark}
+\newtheorem{note}[theorem]{Poznámka}
+\newtheorem*{note*}{Poznámka}
+\newtheorem{remark}[theorem]{Pozorování}
+\newtheorem*{remark*}{Pozorování}
+\numberwithin{theorem}{chapter}
+%theorems, definitions, etc. END
+%%%%%%%%%%%%%%%%%%%%%%
+% DEMO CONTENTS SETTINGS END
+%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+\frontmatter\frontmatterinit % do not remove these two commands
+
+\includepdf{assignment-include.pdf} % replace that file with your thesis assignment provided by study office
+
+\thispagestyle{empty}\cleardoublepage\maketitle % do not remove these three commands
+
+\imprintpage % do not remove this command
+
+\tableofcontents % do not remove this command
+%%%%%%%%%%%%%%%%%%%%%%
+% list of other contents: figures, tables, code listings, algorithms, etc.
+% add/remove commands accordingly
+%%%%%%%%%%%%%%%%%%%%%%
+\listoffigures % list of figures
+\begingroup
+\let\clearpage\relax
+\listoftables % list of tables
+% \lstlistoflistings % list of source code listings generated by the listings package
+\listoflistings % list of source code listings generated by the minted package
+\endgroup
+%%%%%%%%%%%%%%%%%%%%%%
+% list of other contents END
+%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%
+% ACKNOWLEDGMENT
+% FILL IN / MODIFY
+% This is a place to thank people for helping you. It is common to thank your supervisor.
+%%%%%%%%%%%%%%%%%%%
+\begin{acknowledgmentpage}
+Throughout the writing of this thesis, I have received a great deal of support and assistance.
+\\
+\\
+I would first like to thank my supervisor, Ing. Tomáš Oberhuber, Ph.D., who explained to me the essential concepts and contributed to the completion of this work.
+\\
+\\
+I also gratefully acknowledge the assistance of my brother, who helped me with continuous reviews of the thesis text part.
+\\
+\\
+Finally, I wish to thank the CTU FIT staff for being open and ready to help during the three years of my study.
+\end{acknowledgmentpage}
+%%%%%%%%%%%%%%%%%%%
+% ACKNOWLEDGMENT END
+%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%
+% DECLARATION
+% FILL IN / MODIFY
+%%%%%%%%%%%%%%%%%%%
+% INSTRUCTIONS
+% ENG: choose one of approved texts of the declaration. DO NOT CREATE YOUR OWN. Find the approved texts at https://courses.fit.cvut.cz/SFE/download/index.html#_documents (document Declaration for FT in English)
+% CZE/SLO: Vyberte jedno z fakultou schvalenych prohlaseni. NEVKLADEJTE VLASTNI TEXT. Schvalena prohlaseni najdete zde: https://courses.fit.cvut.cz/SZZ/dokumenty/index.html#_dokumenty (prohlášení do ZP)
+\begin{declarationpage}
+    I hereby declare that the presented thesis is my own work and that I have cited all sources of information in accordance with the Guideline for adhering to ethical principles when elaborating an academic final thesis.
+    I acknowledge that my thesis is subject to the rights and obligations stipulated by the Act No. 121/2000 Coll., the Copyright Act, as amended, in particular that the Czech Technical University in Prague has the right to conclude a license agreement on the utilization of this thesis as a school work under the provisions of Article 60 (1) of the Act.
+\end{declarationpage}
+%%%%%%%%%%%%%%%%%%%
+% DECLARATION END
+%%%%%%%%%%%%%%%%%%%
+
+\printabstractpage % do not remove this command
+
+%%%%%%%%%%%%%%%%%%%
+% ABBREVIATIONS
+% FILL IN / MODIFY
+% OR REMOVE ENTIRELY
+% List the abbreviations in lexicography order.
+%%%%%%%%%%%%%%%%%%%
+\chapter{List of abbreviations}
+
+\begin{tabular}{rl}
+CPU & Central Processing Unit\\
+GPU & Graphics Processing Unit\\
+CUDA & Compute Unified Device Architecture\\
+PDE & Partial Differential Equation\\
+TNL & Template Numeric Library\\
+SM & Streaming Multiprocessor\\
+SIMT & Single Instruction Multiple Threads\\
+SIMD & Single Instruction Mutliple Data \\
+DRAM & Dynamic Random Access Memory \\
+FDM & Finite Difference Method
+\end{tabular}
+%%%%%%%%%%%%%%%%%%%
+% ABBREVIATIONS END
+%%%%%%%%%%%%%%%%%%%
+
+\mainmatter\mainmatterinit % do not remove these two commands
+
+%%%%%%%%%%%%%%%%%%%
+% THE THESIS
+% MODIFY ANYTHING BELOW THIS LINE
+%%%%%%%%%%%%%%%%%%%
+
+\include{text/introduction}
+\include{text/goals}
+
+\include{text/prelimitaries/cuda_programming}
+\include{text/prelimitaries/tnl}
+\include{text/prelimitaries/finite_difference_method}
+
+\include{text/implementation/grid}
+\include{text/implementation/convolution.tex}
+\include{text/implementation/benchmarks.tex}
+
+\include{text/conclusion}
+
+\appendix\appendixinit % do not remove these two commands
+
+\include{text/appendix} % include `appendix.tex' from `text/' subdirectory
+
+\backmatter % do not remove this command
+
+\printbibliography % print out the BibLaTeX-generated bibliography list
+
+\include{text/medium} % include `medium.tex' from `text/' subdirectory
+
+\end{document}

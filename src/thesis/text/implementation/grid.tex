@@ -1,0 +1,399 @@
+\chapter{Grid} \label{sec:grid-implementation}
+
+The TNL provides \texttt{Grid} and \texttt{GridEntity} class templates to work with structured orthogonal grids.
+From the implementation perspective, the library aims to minimize the runtime overhead by implementing statically resolved types.
+As a result, the compiler performs more compile-time optimizations.
+In addition to that, both \texttt{Grid} and \texttt{GridEntity} aim to be lightweight and store only essential information.
+The TNL supports one-, two- and three-dimensional grids.
+The main operation performed on the grid is the parallel traverse of its entities.
+The grid can traverse all, boundary and interior entities concurrently.
+Additionally, the grid positions entities in space and allows them to operate with the entity neighbours.
+The grid entity is not only the cell or the vertex of the grid, but the grid supports any subentity of the grid cell.
+The TNL implements a projected coordinates system.
+Each entity is indexed with the Cartesian coordinate, and then the coordinate is projected to its position in space.
+
+Most of the values in the grid and grid entity are represented as vectors of the grid dimension length.
+Hence, grid defines \texttt{Coordinate} and \texttt{Point} types, which represent the grid dimension-length vector of integer and real values accordingly.
+
+\section{Grid entity}
+
+The \texttt{GridEntity<Grid, EntityDimension>} class template represents the entity of a structured grid.
+The \texttt{EntityDimension} template parameter specifies the dimension of the grid entity.
+Possible dimensions of the grid entity are zero or the value lower or equal to the dimension of the grid.
+The zero-dimensional grid entity represents a vertex, the one-dimensional grid entity represents an edge and so on.
+The \texttt{GridEntity} is highly coupled with the grid it is defined in.
+Therefore, the \texttt{Grid} template parameter references the type of the \texttt{Grid} class.
+From the \texttt{Grid} class type the \texttt{GridEntity} gets the information about the dimension of the grid, index and real types.
+The grid entity stores only essential information needed: the reference on the grid, the coordinates of the entity in the grid, its global index, orientation and basis (described in Section \ref{sec:basis}).
+
+\subsection{Coordinates}
+
+The grid indexes every entity using the Cartesian coordinate system.
+In every cell, a coordinate is assigned to the vertex in the cell, which is the closest to the coordinate origin.
+And the coordinate is the index of the vertex in the sequence of cells.
+The example of the coordinates is shown in Figure \ref{fig:grid-entities}
+The type of the coordinate is the \texttt{Coordinate}.
+However, the coordinate is not capable of identifying all grid entities.
+To show this let's consider 2-dimensional grid from Figure \ref{fig:grid-entities}.
+\((0, 0)\) is the coordinate, which will uniquely identify both the vertex and the grid cell.
+However, there are two types of edges which go from vertex \((0, 0)\), therefore the coordinate is not sufficient, which led to the introduction of the orientation.
+
+The user can get coordinates from both the device and the host using the \texttt{getCoordinates()} method.
+Additionally, the grid entity coordinates can be updated using the \texttt{setCoordinates()} method.
+
+\subsection{Orientation}
+
+The orientation represents the position of the entity relative to grid axes and is of integer type.
+For example, let's consider a 3-dimensional grid.
+There is only one way to position cell and vertex to grid axes, therefore they have the orientation \(0\).
+There are 3 ways to position edges and faces to axes, therefore there are 3 possible orientations.
+
+From the other point of view, the orientation characterizes the linear subspace to which the entity belongs.
+To understand this more, let's show how the linear subspace is denoted.
+The Cartesian coordinate system is a linear space, which is spanned by a set of linearly independent basis vectors.
+All vectors in the set are unique, otherwise, they aren't linearly independent.
+The selection of \(k\)-vectors from the basis forms a linearly independent set of vectors, which spans a linear subspace.
+Using previous observations to generate all linear subspaces the enumeration of \((0, 1, \dots, n)\)-combinations is performed.
+Each \(n\)-dimensional entity of the grid either belongs to the linear subspace of the corresponding dimension or the linear manifold collinear to it.
+The orientation of \(n\)-dimensional entity identifies the combination index in the lexicographically sorted sequence of \(n\)-combinations from basis vectors.
+All possible orientations are represented in Figure \ref{fig:grid-entities}.
+
+The entity dimension and the orientation uniquely identify the \textit{entity type}.
+Thus, both entity dimension and the orientation should be the template parameters in the grid entity type.
+However, this affects the traverse operations.
+The traverse operations must accept the lambda function by design, which will be called with the grid entity.
+At the moment of writing, the CUDA programming model didn't support generic lambdas.
+Therefore to traverse entities, the user must specify a lambda function for every orientation.
+However, entities of different orientations are generally processed similarly.
+Hence the grid entity class stores its orientation.
+
+The user can access the orientation of the entity from both the device and the host by using the \texttt{getOrientation()} method of the \texttt{GridEntity}.
+In addition to that, the grid entity orientation can be updated by the \texttt{setOrientation()} method.
+
+\subsection{Basis} \label{sec:basis}
+
+The basis is the \(n\)-dimensional boolean vector, which characterizes the grid entity type.
+The value at index \(i\) in the vector is \(0\) if the entity spans along the \(i\)-th axis, otherwise, it is \(1\).
+The examples of bases are listed in Figure \ref{fig:grid-entities}.
+The type of basis is the \texttt{Coordinate}.
+
+It must be mentioned, that the basis is superfluous to the entity dimension and the entity orientation.
+Nonetheless, the basis has an important role in the traversal operations, verifying if the entity is a boundary and accessing the neighbour entities.
+The main reason is the relationship between the entity type and the number of corresponding entities in the grid.
+The grid stores its dimensions as the number of edges along its axes.
+The basis possesses the following property: the grid dimensions are formed by entities of a specific dimension and the number of entities along grid axes is given by summing up the basis and grid dimensions.
+In the following text, the term \textit{grid entities dimensions} will mean the dimension of the grid aligned with the basis.
+For example, the dimensions of a 2-D grid on Figure \ref{fig:grid-entities} are \((5, 3)\).
+The basis of the vertex is \((1, 1)\) and the number of vertices along axes is the following.
+
+\begin{equation}
+ (5, 3) + basis = (5, 3) + (1, 1) = (6, 4)
+\end{equation}
+
+\clearpage
+\import{./text/imgs}{group}
+\clearpage
+
+In the implementation, the basis is generated using template metaprogramming.
+The problem of generating bases is reduced to generating types, which represent the k-combinations.
+In addition to that, the implementation of the basis generation is dimension independent.
+The developer can generate \texttt{constexpr} basis value by using the static \texttt{getBasis<EntityOrientation>()} method in the \texttt{BasisGetter<EntityDimension>} class.
+However, the compiler must know the orientation and dimension at the compilation phase.
+Hence the grid additionally stores bases, which can be accessed dynamically by using \texttt{getBasis<EntityDimension>(orientation)} defined in the \texttt{Grid} class.
+
+The user can access the basis of the entity from both the device and the host by using the \texttt{getBasis()} method of given \texttt{GridEntity}.
+In addition to that, the grid entity basis can be updated by using the \texttt{setBasis()} method.
+
+\subsection{Global index}
+
+The global index is the grid entity integer index calculated from the entity coordinate and the orientation.
+To calculate the index the grid entities counts are obtained from the basis and the dimensions of the grid following the method from Section \ref{sec:basis}.
+Then the index is calculated from the coordinate of the entity the following way.
+
+\begin{equation}
+ \text{index} = c.x() + \text{dim}.x() * c.y() + \text{dim}.x() * \text{dim}.y() * c.z()
+\end{equation}
+
+The \(c\) is the coordinate of the grid entity and the \(dim\) is the grid entity dimensions.
+
+For the entities with multiple orientations, this method will result in similar indices for different orientations.
+However, entities of different types are processed independently, therefore it is enough to correctly align the entities' indices.
+The index of the entity with the orientation \(k\) is adjusted by adding entity counts of lower orientations.
+The example is on the Figure \ref{fig:memory-1-D}, where \((0)\), \((1)\), \((2)\) are orientations of the edges in the 3-dimensional grid.
+
+\import{./text/imgs}{memory}
+
+To access the global index of the entity the user can use \texttt{getIndex()} method.
+
+\subsection{Boundary entities}
+
+The grid entity is a boundary if all of its vertices are located on the surface of the grid.
+The user can check if the entity is the boundary by using the \texttt{isBoundary()} method of the \texttt{GridEntity}.
+
+\subsection{Neighbours}
+
+In most cases, numerical methods perform operations on the entity and its neighbours.
+The process of obtaining neighbour entities has two edge cases.
+The first case is when the neighbour of the same dimension and the orientation to the parent entity are needed.
+Then to get a neighbour it is enough to adjust the coordinate and update the global index because the entity of the same type has the same basis and orientation.
+The second case is when the dimension and the orientation differ from the parent entity.
+Then the coordinate and the global index are updated the same way, but in some cases, the neighbour entity doesn't support the parent orientation.
+In these cases, the orientation of the neighbour entity is set to the maximally supported orientation and the basis is updated.
+
+To get the neighbour entity the user can use any of the following methods:
+
+\begin{itemize}
+ \item{ \texttt{getNeighbourEntity<Dimension, Steps...>()} } returns the entity of the \texttt{Dimension} with the coordinates adjusted by \texttt{Steps...}
+ \item{ \texttt{getNeighbourEntity<Dimension, Orientation, Steps...>()} } returns the entity of the \texttt{Dimension} and \texttt{Orientation} with the coordinates adjusted by \texttt{Steps...}
+ \item{ \texttt{getNeighbourEntity<Dimension>(const Coordinate\& offset)} } returns the entity of the \texttt{Dimension} with the coordinates adjusted by \texttt{offset}.
+ \item{ \texttt{getNeighbourEntity<Dimension, Orientation>(const Coordinate\& offset)} } returns the entity of the \texttt{Dimension} and \texttt{Orientation} with the coordinates adjusted by \texttt{offset}.
+\end{itemize}
+
+When the method is called with \texttt{Dimension} and \texttt{Orientation}, it will use the static basis value.
+Otherwise, it will access the basis dynamically from the grid.
+The same is true for the \texttt{Steps...} variadic parameter pack.
+
+\subsection{Measure and center}
+
+The grid entity implements \texttt{getMeasure()} and \texttt{getCenter()} methods to get the information about the entity position in the domain.
+The measure represents the volume of the hypercube, which the entity represents, and the center represents the position of the grid entity center in the domain.
+
+In general, both the measure and the center can be implemented using bases, because the basis represents the directions in which the entity spans.
+However, the implementation will be less efficient, because the basis must be accessed dynamically.
+
+\section{Grid}
+
+The \texttt{Grid<Dimension, Real, Device, Index>} class template represents an orthogonal structured grid.
+It inherits from \texttt{NDimGrid<Dimension, Real, Device, Index>}, which implements dimension independent operations on the grid.
+The \texttt{Dimension} template parameter represents the dimension of the grid.
+The \texttt{Device} represents the device, on which parallel traverse of grid entities will be performed.
+The \texttt{Index} and \texttt{Real} represent index and real value correspondingly.
+The grid stores information about entity counts, configurations of domain and bases of entities.
+
+\subsection{Dimensions}
+
+The dimension of the grid along the axis is the number of edges along the corresponding axis.
+When the dimension of the grid is updated, the grid recalculates the count of every entity type in the grid and the proportions of the grid.
+The entity counts are obtained the same way described in Section \ref{sec:basis}.
+
+The user can use \texttt{getDimensions()} to get the dimensions of the grid.
+The user can use \texttt{setDimensions()} to set the dimensions of the grid.
+
+\subsection{Domain}
+
+The implementation of the grid only supports cells of equal dimensions.
+The user can specify the dimension of the cell by using \texttt{setSpaceSteps()} method.
+The method accepts on the input the vector, where each real element at \(i\)-th index represent the dimension of the cell along the corresponding axis.
+It is often needed to calculate the coefficients in the following form.
+
+\begin{equation}
+ h_x^i * h_y^j * h_z^k
+\end{equation}
+
+The \(h_{*}\) represents the space step along the \(*\)-th axis and \(i\), \(j\), \(k\) are integer powers of space steps.
+For that reason, the grid calculates the coefficients for all \(i\), \(j\), \(k\) from range \([-2, 2]\).
+The user can get the coefficient by using \texttt{getSpaceStepsProducts(Powers...)} and \texttt{getSpaceStepsProducts<Powers...>()} method.
+By using the second method, the grid will calculate the index of the coefficient in coefficient lists at the compile time.
+
+Additionally, the grid supports positioning in given space.
+The origin represents the point, where the zero coordinate is located.
+The type of origin is the \texttt{Point}.
+The user can use \texttt{getOrigin()} to get the origin of the grid.
+The user can use \texttt{setOrigin()} to set the origin of the grid.
+The \texttt{setOrigin()} accepts on the input the vector of real values.
+
+Finally, the user can specify the size of the grid and the origin using \texttt{setDomain()} method.
+The grid will calculate the space steps based on their dimension and update the origin.
+
+\subsection{Traverse}
+
+The grid implements parallel traverse of all, boundary and interior entities.
+To traverse grid entities the developer must use \texttt{forAll}, \texttt{forBoundary} and \texttt{forInterior} methods.
+Because of the Cartesian coordinate system, the traversal of grid entities is the same as the iterating of the grid entities' coordinates.
+The problem of iterating all coordinates for entities with a single orientation type is solved with several nested for loops.
+It is because all entities are identified with the coordinates and all coordinates form rectangle.
+For entities with multiple orientations grid entities dimensions differ for each orientation, but it can be resolved by processing each orientation independently.
+In the following text, the \textit{start index} term will represent the initial values of nested for loops and the \textit {end index} will represent the end values of nested for loops.
+
+The traverse of entities with multiple orientations is used in the traverse of all, boundary and interior entities.
+Therefore static (compile-time) for loop \texttt{ForEachOrientation} was implemented using template metaprogramming.
+The \texttt{exec()} function from \texttt{ForEachOrientation} accepts the lambda function on the input, which will be called with orientation and basis of entity.
+The orientation has \texttt{std::integral\_constant} type, therefore it can be used in type definition.
+Additionally, the \texttt{ForEachOrientation} can skip one orientation value.
+
+Finally, the implementation of all entities of any dimension traversal is the following.
+
+\vspace{8pt}
+
+\begin{listing}[!h]
+\caption{The implementation of all grid entities traversal}
+\begin{minted}{c++}
+Coordinate from = ..., to = ...;
+
+auto exec = [&](const Index orientation, const Coordinate& basis) {
+  ParallelFor<...>::exec(from, to + basis, ...);
+};
+
+ForEachOrientation<Index, EntityDimension, Dimension>::exec(exec);
+\end{minted}
+\end{listing}
+
+\vspace{8pt}
+
+The traversal of interior (non-boundary) entities is similar to the traversal of all entities, but the start and the end indices must be adjusted.
+For entities with multiple orientations, the start index is adjusted by adding the basis vector.
+By doing this the start index is moved along axes, such that the entity doesn't span along with them, therefore it isn't a boundary.
+For entities with a single orientation, the start and end indices are adjusted depending on if the coordinate represents the grid vertex or cell.
+The implementation of interior entity traversal is the following.
+
+\begin{listing}[!h]
+\caption{The implementation of interior grid entities traversal}
+\begin{minted}{c++}
+Coordinate from = ..., to = ...;
+
+auto exec = [&](const Index orientation, const Coordinate& basis) {
+  if (Dimension == EntityDimension) {
+    ParallelFor<...>::exec(from + Coordinate(1), to - Coordinate(1), ...);
+    return;
+  }
+
+  Templates::ParallelFor<...>::exec(from + basis, to, ...);
+};
+
+ForEachOrientation<Index, EntityDimension, Dimension>::exec(exec);
+\end{minted}
+\end{listing}
+\newpage
+
+\vspace{8pt}
+
+The traversal of boundary entities is built on the fact, that the surface of the \(n\)-dimensional hypercube is formed by the \((n-1)\)-dimensional linear spaces.
+There are exactly \(2n\) boundary surfaces of the hypercube.
+Each surface is spanned by the set of \((n-1)\) independent vectors and the other basis vector is orthogonal to the surface.
+Therefore, to iterate all surfaces it is enough to iterate all basis vectors or all orientations of grid surface dimension entity.
+The traversal of the intersections formed by boundaries is an important implementation aspect because intersections belong to multiple surfaces.
+Each entity must be traversed only once, therefore, entities, which belong to the intersections, must be addressed by the traversal algorithm.
+The implementation of boundaries traversal is the following.
+
+Entities of the grid surface dimension form intersections of lower dimensions than the dimension of the entity.
+Therefore, each entity belongs only to one surface and can be traversed the following way.
+
+\vspace{8pt}
+
+\begin{listing}[!h]
+\caption{The traversal of boundary entities of the grid surface dimension}
+\begin{minted}{c++}
+auto exec = [&](const auto orientation, const Coordinate& basis) {
+  constexpr int orthogonalOrientation = EntityDimension - orientation;
+
+  forBoundary(orthogonalOrientation, orientation, basis);
+};
+
+ForEachOrientation<Index, EntityDimension, Dimension>::exec(exec);
+\end{minted}
+\end{listing}
+
+\vspace{8pt}
+
+For all other entities, intersections are formed.
+In addition to this, there are two other cases.
+The first case is when the entity type has multiple orientations.
+Then all entity orientations belong to the surface except the orientation which is orthogonal to the surface.
+Hence, the orthogonal orientation must be omitted in the boundary entities traversal.
+The second case is when the entity type has a single orientation, then all entities belong to the surface.
+For both cases boundary intersection issue occurs, therefore the implementation remembers all traversed surfaces in the \texttt{isBoundaryTraversed} vector.
+The implementation is presented in the Code Listing \ref{code:other-boundaries}.
+
+\newpage
+\begin{listing}[!ht]
+\begin{minted}{c++}
+auto exec = [&](const auto orthogonalOrientation) {
+  auto exec = [&](const auto orientation, const Coordinate& basis) {
+    forBoundary(orthogonalOrientation, orientation, basis);
+  };
+
+  ForEachOrientation<
+    ..., isDirectedEntity ? orthogonalOrientation : -1
+  >::exec(exec);
+
+  isBoundaryTraversed[orthogonalOrientation] = 1;
+};
+
+DescendingFor<orientationsCount - 1>::exec(exec);
+\end{minted}
+\caption{The traversal of other boundary entities}
+\label{code:other-boundaries}
+\end{listing}
+
+In both cases, the implementation calls \texttt{forBoundary} lambda functions, which start traversal of bottom and upper surface along with orthogonal orientation.
+On lines 3-10 the program adjusts indices to not iterate intersection entities several times.
+On lines 12, 15-16 start and end indices are adjusted to traverse only surface entities.
+
+\begin{listing}[!h]
+\caption{The traversal of boundary entities along orthogonal axis}
+\begin{minted}{c++}
+Coordinate start = from;
+Coordinate end = to + basis;
+
+if (EntityDimension != Dimension - 1) {
+  #pragma unroll
+  for (Index i = 0; i < Dimension; i++) {
+    int offset = (!isDirectedEntity || basis[i]) && isBoundaryTraversed[i];
+
+    start[i] = offset;
+    end[i] = end[i] - offset;
+  }
+}
+
+start[orthogonalOrientation] = end[orthogonalOrientation] - 1;
+
+Templates::ParallelFor<Dimension, Device, Index>::exec(start, end, ...);
+
+// Skip entities defined only once
+if (!start[orthogonalOrientation] && end[orthogonalOrientation]) return;
+
+start[orthogonalOrientation] = 0;
+end[orthogonalOrientation] = 1;
+
+Templates::ParallelFor<Dimension, Device, Index>::exec(start, end, ...);
+\end{minted}
+\end{listing}
+
+\section{Unit testing}
+
+After the implementation, several problems with unit testing of the solution arose.
+Firstly, there are hundreds of edge cases for different grid dimensions and configurations.
+Secondly, the implementation must be tested on multiple device architectures.
+Thirdly, the solution actively uses template metaprogramming, therefore, multiple specializations of methods must be tested.
+To address all these issues several test environments were written to test the implementation of the grids.
+In general, the test environment must be additionally tested to ensure the validity of the test.
+
+All tests were written using the modern C++ unit testing framework GTest \cite{GTest}.
+GTest provides the solution to implement generic test cases by using \texttt{TYPED\_TEST} macro.
+The whole documentation on the \texttt{TYPED\_TEST} can be found in \cite{GTest}.
+
+\subsection{Test of grid properties}
+
+The grid templates provide multiple getter and setter methods to configure the grid.
+To test these methods, the test environment uses the following approach.
+It configures the grid and instantiates a \texttt{TNL::Array} container.
+The test environment traverses the container in parallel and on multiple devices.
+During the traversal, the test environment gets the value from the grid using the index in the container and stores it in the container.
+Finally, the test environment traverses the container once more, but the traversal is done sequentially and the values are verified.
+
+\subsection{Test of traversal and grid entities}
+
+To test traversal methods, the test environment uses the following approach.
+It configures the grid and instantiates entity storage.
+Then it calls the tested traverse method and stores all information about the entity in the entity storage.
+Finally, it traverses all grid entities once more, but the traversal is done sequentially and the entity values are verified.
+Additionally, the entities of the grid possess the following property: the set of all entities is formed by the union of interior and boundary entities.
+Using this property the traversal methods were additionally tested.
+
+\subsection{Test of neighbours}
+
+To test the neighbour entity access, the test environment uses the following approach.
+It configures the grid and instantiates entity storage.
+Then it calls the tested traverse method with the body, inside which the grid accesses the specific grid entity neighbour.
+The neighbour entity is stored in the entity storage.
+Finally, the test environment traverses all grid entities once more, but the traversal is done sequentially and the entity values are verified.

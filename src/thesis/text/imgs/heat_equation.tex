@@ -1,0 +1,206 @@
+\usetikzlibrary{calc}
+\usetikzlibrary{chains, decorations.pathreplacing, positioning}
+
+\definecolor{decoration}{RGB}{0, 122, 195} %CTU blue
+\definecolor{heading}{RGB}{0, 122, 195}
+\definecolor{headbackgroundgray}{RGB}{199, 219, 241} %light blue
+\definecolor{backgroundgray}{RGB}{199, 219, 241} %CTU light blue
+\definecolor{headgray}{rgb}{0.50,0.50,0.51}
+\definecolor{enumgray}{RGB}{0, 122, 195} %CTU blue
+
+\pgfplotsset{
+  table/search path={./text/data},
+}
+
+\captionsetup{labelsep=space,indention=0cm,labelfont=bf,width=.9\textwidth,skip=.5\baselineskip}
+\captionsetup[sub]{labelfont=bf,labelsep=period,labelformat=simple}
+
+\begin{figure}[!hp]
+
+
+\floatsetup{font=normalsize}
+
+\floatbox{figure}
+{ %
+
+\ffigbox[\FBwidth]{%
+\begin{subfloatrow}[2] %
+
+  \ffigbox[\FBwidth]{%
+    \resizebox{0.4\textwidth}{!}{%
+      \begin{tikzpicture}
+      \begin{axis}[xmin=-1.5,xmax=1.5,
+                   ymin=-1.5,ymax=1.5,
+                   zmin=0,zmax=17,
+                   ytick={2, 0, -2},
+                   only marks,
+                   grid=major,
+                   view={30}{30}]
+      \addplot3[mark=o,color=enumgray]  table[col sep=comma, smooth] {heat_eq_0.dat};
+      \end{axis}
+      \end{tikzpicture}
+    }
+
+    \caption{t=0}
+  }
+
+  \ffigbox[\FBwidth]{%
+    \resizebox{0.4\textwidth}{!}{%
+      \begin{tikzpicture}
+      \begin{axis}[
+        xmin=-1.5,xmax=1.5,
+        ymin=-1.5,ymax=1.5,
+        zmin=0,zmax=17,
+        only marks,
+        grid=major,
+        view={30}{30}]
+      \addplot3[mark=o,color=enumgray]  table[col sep=comma] {heat_eq_4.dat};
+      \end{axis}
+      \end{tikzpicture}
+    }
+
+    \caption{t=0.02}
+  }
+
+\end{subfloatrow} %
+}
+
+\ffigbox[\FBwidth]{%
+\begin{subfloatrow}[2] %
+
+  \ffigbox[\FBwidth]{%
+    \resizebox{0.4\textwidth}{!}{%
+
+      \begin{tikzpicture}
+        \begin{axis}[
+          xmin=-1.5,xmax=1.5,
+          ymin=-1.5,ymax=1.5,
+          zmin=0,zmax=17,
+          only marks,
+          grid=major,
+          view={30}{30}]
+      \addplot3[mark=o,color=enumgray]  table[col sep=comma, smooth] {heat_eq_8.dat};
+      \end{axis}
+      \end{tikzpicture}
+    }
+
+    \caption{t=0.04}
+  }
+
+  \ffigbox[\FBwidth]{%
+    \resizebox{0.4\textwidth}{!}{%
+
+      \begin{tikzpicture}
+      \begin{axis}[
+        xmin=-1.5,xmax=1.5,
+        ymin=-1.5,ymax=1.5,
+        zmin=0,zmax=17,
+        only marks,
+        grid=major,
+        view={30}{30}]
+      \addplot3[mark=o,color=enumgray]  table[col sep=comma] {heat_eq_16.dat};
+      \end{axis}
+      \end{tikzpicture}
+    }
+
+    \caption{t=0.08}
+  }
+
+\end{subfloatrow} %
+}
+
+\caption{The heat equation FDM numerical approximation at different times}
+\label{fig:heat-numeric}
+}
+
+\vspace{16pt}
+
+\floatbox{figure}
+  { %
+
+  \ffigbox[\FBwidth]{%
+  \begin{subfloatrow}[2] %
+
+    \ffigbox[\FBwidth]{%
+      \resizebox{0.4\textwidth}{!}{%
+        \begin{tikzpicture}
+          \begin{axis}[
+            xmin=-1.5,xmax=1.5,
+            ymin=-1.5,ymax=1.5,
+            zmin=0,zmax=17,
+            only marks,
+            grid=major,
+            view={30}{30}]
+        \addplot3[mark=o,color=enumgray]  table[col sep=comma, smooth] {conv_heat_eq_0.dat};
+        \end{axis}
+        \end{tikzpicture}
+      }
+
+      \caption{t=0}
+    }
+
+    \ffigbox[\FBwidth]{%
+      \resizebox{0.4\textwidth}{!}{%
+        \begin{tikzpicture}
+        \begin{axis}[
+          xmin=-1.5,xmax=1.5,
+          ymin=-1.5,ymax=1.5,
+          zmin=0,zmax=17,
+          only marks,
+          grid=major,
+          view={30}{30}]
+        \addplot3[mark=o,color=enumgray]  table[col sep=comma] {conv_heat_eq_4.dat};
+        \end{axis}
+        \end{tikzpicture}
+      }
+
+      \caption{t=0.02}
+    }
+
+  \end{subfloatrow} %
+  }
+
+  \ffigbox[\FBwidth]{%
+  \begin{subfloatrow}[2] %
+    \ffigbox[\FBwidth]{%
+      \resizebox{0.4\textwidth}{!}{%
+        \begin{tikzpicture}
+          \begin{axis}[
+            xmin=-1.5,xmax=1.5,
+            ymin=-1.5,ymax=1.5,
+            zmin=0,zmax=17,
+            only marks,
+            grid=major,
+            view={30}{30}]
+        \addplot3[mark=o,color=enumgray]  table[col sep=comma, smooth] {conv_heat_eq_8.dat};
+        \end{axis}
+        \end{tikzpicture}
+      }
+      \caption{t=0.04}
+    }
+
+    \ffigbox[\FBwidth]{%
+      \resizebox{0.4\textwidth}{!}{%
+        \begin{tikzpicture}
+        \begin{axis}[
+          xmin=-1.5,xmax=1.5,
+          ymin=-1.5,ymax=1.5,
+          zmin=0,zmax=17,
+          only marks,
+          grid=major,
+          view={30}{30}]
+        \addplot3[mark=o,color=enumgray]  table[col sep=comma] {conv_heat_eq_16.dat};
+        \end{axis}
+        \end{tikzpicture}
+      }
+      \caption{t=0.08}
+    }
+
+  \end{subfloatrow} %
+  }
+
+  \caption{The heat equation pseudo-analytical solution at different times}
+  \label{fig:heat-convolve}
+  }
+
+\end{figure}

@@ -1,0 +1,200 @@
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+\newcolumntype{Z}{>{\centering\arraybackslash}l}
+
+\chapter{Evaluation results}
+
+\section{Environment}
+
+The evaluation and measurement of implementations were performed on the \texttt{gp1} machine provided by the Faculty of Nuclear Sciences and Physical Engineering, CTU Prague.
+The specification of the machine and the environment is the following.
+
+\begin{table}[!h]
+\begin{tabularx}{\textwidth}{l|Y}
+\textbf{Element} & \textbf{Specification} \\
+\hline \hline
+OS & Arch Linux 5.17.4-arch1-1 \\
+CPU & Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz \\
+GPU & Nvidia Quadro P6000 \\
+NVCC & 11.6.112 \\
+GCC & 11.2.0
+\end{tabularx}
+\caption{The specification of test environment}
+\end{table}
+
+The code was compiled with the \texttt{nvcc} and \texttt{gcc} using the TNL build system.
+The \texttt{./build benchmark} command was used to build benchmarks and \texttt{./build tests} was used to build unit tests.
+
+\section{Grid implementation}
+
+\subsection{Refactoring results}
+
+Using the techniques described in Section \ref{sec:grid-implementation} the size of the codebase was significantly reduced.
+The original implementation was 7949 lines long.
+In comparison to it, the new implementation is only 3716 lines long.
+In addition to this, the new implementation has everything prepared to make the grid orientation static.
+By doing this, some grid entity operations and statements can be evaluated at the compilation phase, which will result in better performance.
+In addition to this, the basis and the orientation can be evaluated statically, which will reduce the grid entity memory footprint.
+However, to add this the limitation of the CUDA lambda expressions must be overcome.
+Finally, the new implementation is tested on multiple devices and with multiple specializations of grid templates.
+
+\subsection{Comparison of the heat equation numerical solvers}
+
+One of the goals was to evaluate the overhead added by the use of grid classes.
+To evaluate it the following benchmarks were implemented.
+
+\begin{enumerate}
+ \item{
+  The heat equation numerical solver using the \texttt{ParallelFor} algorithm in the TNL is the baseline benchmark.
+  It uses only essential primitives, therefore it is the fastest of all benchmarks.
+ }
+ \item {
+  The heat equation numerical solver, which uses \texttt{Grid} classes, is the benchmark, which is used to measure the overhead added by using grids.
+ }
+ \item {
+ The heat equation numerical solver with the emulated grid entity is the benchmark, which implements the same class hierarchy as the implementation of grids in the TNL.
+ The main reason for adding this benchmark was to evaluate if grid class hierarchy adds runtime overhead to the implementation.
+ }
+ \item {
+  The last numerical solver implements dimension independent grid prototype.
+  The numerical solver traverses entity global indices and then calculates the coordinates of the entity in the grid, which is opposite to what the TNL grids do.
+  The main reason for adding this benchmark was to test if the described approach is suitable for grid improvement.
+ }
+\end{enumerate}
+
+All of these benchmarks were compiled with the NVCC and were evaluated on the host and the device in multiple grid configurations.
+The results were obtained the following way.
+Each benchmark calculated the solution of the heat equation 10 times.
+For the host, the benchmark executed 1000 iterations of the numerical scheme and for the device, the benchmark performed 10000 iterations of the numerical scheme.
+The results are listed in Table \ref{table:grid}.
+
+\begin{table}[!ht]
+ \begin{tabularx}{\textwidth}{lcc|Y|Y|Y|Y}
+ &&& \multicolumn{4}{c}{\textbf{Grid width x Grid height}} \\ \hline
+ \textbf{ID\textsuperscript{1}} & & & \textbf{100x100} & \textbf{400x400} & \textbf{1600x1600\ } & \textbf{3200x3200} \\ \hline \hline
+ 1. Parallel for & host & time\textsuperscript{2} & 0.047 & 0.134 & 1.448 & - \\
+ & & difference\textsuperscript{3} & - & - & - & - \\
+ & device & time & 0.169 & 0.267 & 3.410 & 13.175 \\
+ & & difference & - & - & - & - \\ \hline
+ 2. TNL & host & time & 0.070 & 0.437 & 6.662 & - \\
+ & & difference & 33.3 & 69.4 & 78.2 & - \\
+ & device & time & 0.194 & 0.294 & 3.440 & 13.207 \\
+ & & difference & 12.9 & 9.1 & 0.9 & 0.2 \\ \hline
+ 3. Emul. ent. & host & time & 0.044 & 0.137 & 1.448 & - \\
+ & & difference & -6.9 & 2.8 & 0.1 & - \\
+ & device & time & 0.172 & 0.274 & 3.417 & 13.181 \\
+ & & difference & 2.4 & 2.7 & 0.2 & 0.05 \\ \hline
+ 4. N-dim. & host & time & 0.047 & 0.221 & 3.375 & - \\
+ & & difference & 1.4 & 39.3 & 57.1 & - \\
+ & device & time & 0.402 & 0.490 & 5.190 & 15.281 \\
+ & & difference & 58 & 46 & 34.3 & 13.7
+\end{tabularx}
+\caption{The table of the heat equation numerical solvers evaluation results. All benchmarks were compiled with the NVCC and the double-precision operations were used for calculations}
+\label{table:grid}
+\end{table}
+
+\footnotetext[1]{The ID of the benchmark in order of description on the top of the page}
+\footnotetext[2]{Execution time measured in seconds}
+\footnotetext[3]{Difference to the "parallel for" benchmark in percents}
+
+\newpage
+
+It can be seen that the use of TNL grids doesn't add significant overhead for large grids, which were executed on the GPU.
+However, for the small grid and host execution, the overhead is significant.
+
+The main reason for significant overhead measured for small grids is the execution time of numerical scheme iteration.
+For small grids, the iteration of the numerical scheme is significantly shorter than for large grids.
+Hence, the ratio of the overhead added by the grid to the iteration execution time is bigger than the equivalent ratio for large grids.
+
+For host execution, the significant overhead is the result of the compiler's inability to perform lambda expression inlining.
+The problem was described in Section \ref{sec:lambdas}.
+However, the issue only occurs, when the numerical solver is compiled with the NVCC.
+To evaluate the numerical solvers on the host the additional measurements were performed for benchmarks compiled with GCC.
+On the host the numerical solvers traverse grid entities in parallel by using the OpenMP library.
+The results are listed in Table \ref{table:grid}.
+
+\begin{table}[!ht]
+ \begin{tabularx}{\textwidth}{lc|Y|Y|Y|Y}
+ && \multicolumn{4}{c}{\textbf{Grid width x Grid height}} \\ \hline
+ \textbf{ID}\textsuperscript{1} & & \textbf{100x100} & \textbf{400x400} & \textbf{800x800} & \textbf{1600x1600} \\ \hline \hline
+ 1. Parallel for & time \textsuperscript{2} & 1.330 & 2.970 & 4.701 & 22.838 \\ \hline
+ 2. TNL & time & 1.340 & 2.691 & 4.883 & 22.532 \\
+ & difference \textsuperscript{3} & 0.7 & -10.3 & 3.7 & -1.3 \\ \hline
+ 3. Emul. ent.  & time & 1.317 & 3.283 & 5.065 & 23.205 \\
+ & difference & -0.9 & 9.5 & 7.1 & 1.5 \\ \hline
+ 4. N-dim. & time & 1.404 & 5.790 & 20.936 & 86.710 \\
+ & difference & 5.2 & 48 & 77 & 73
+\end{tabularx}
+\caption{The table of the heat equation numerical solvers evaluation results. All benchmarks were compiled with the GCC and the double-precision operations were used for calculations}
+\end{table}
+
+By results evaluation, it can be seen, that the use of grid classes doesn't add significant overhead when the numerical solver was compiled with the GCC.
+
+\footnotetext[1]{The ID of the benchmark in order of description on the top of the previous page}
+\footnotetext[2]{CPU time measured in seconds}
+\footnotetext[3]{Difference to the "parallel for" benchmark in percents}
+
+\section{Convolution}
+
+\subsection{Comparison of the convolution operators}
+
+All versions of the convolution operator described in Section \ref{sec:convolution} were evaluated on different kernel and domain sizes.
+To measure the computation time the convolution operator is calculated 10 times, and then the average of all times is taken.
+The obtained results showed, that one-, two- and three-dimensional convolution operators behave similarly with the increasing kernel volume.
+Therefore, only the measurements for the two-dimensional convolution are presented in Figure \ref{fig:convolve-result}.
+The basic implementation is predictably the slowest one.
+By storing the data block in the shared memory, insignificant performance improvement is achieved for small kernels.
+However, for large kernel sizes almost 2 times performance improvement is achieved.
+In comparison to this, by storing the kernel in the shared memory the opposite behaviour is obtained.
+For small kernel sizes, the implementation is significantly faster, however, with the increasing kernel size the performance degrades.
+Finally, the implementation with storing both data and kernel in the shared memory is the fastest.
+The main reason is that after loading data no reads from the global memory are needed.
+
+\newpage
+
+\import{./text/imgs}{convolution_results.tex}
+
+The convolution operator was compared to the implementation proposed in the following article \cite{Convolve}.
+The authors of the article propose the implementation of the convolution operator and compare it to different public versions of it.
+Their implementation is similarly limited to the thread block size.
+However, their implementation has one significant drawback.
+The performance of the convolution operator significantly degrades with the 15x15 and larger kernel sizes.
+In comparison to them, the implementation proposed in the thesis doesn't have such drawbacks.
+And for small kernels, the implementation has a similar performance shown in the article.
+
+\subsection{Comparison between the FDM approximation of the heat equation and the pseudo-analytical solution}
+
+The numerical scheme obtained in Section \ref{sec:heat-equation} iteratively approximates the solution of the heat equation.
+In comparison, the pseudo-analytical solution calculates the exact state of the heat equation at a specific time.
+The pseudo-analytical solution can't be computed in the continuous domain, therefore the implementation numerically approximates it.
+The following initial condition \(\mu\) was chosen to compare the pseudo-analytical solution of the heat equation and the numerical approximation obtained with the FDM.
+
+\begin{equation}
+ \mu = \frac{x^2}{\alpha} + \frac{y^2}{\beta} + \gamma
+\end{equation}
+
+where \(\alpha\), \(\beta\), \(\gamma\) are user-defined variables.
+To evaluate the results the values \(-0.05\), \(-0.05\) and \(15\) were chosen for \(\alpha\), \(\beta\) and \(\gamma\) accordingly.
+The results of the FDM approximation are illustrated in Figure \ref{fig:heat-numeric} and the results of the pseudo-analytical solution approximation are illustrated in Figure \ref{fig:heat-convolve}.
+By observing the results it can be seen, that both the approximation obtained with FDM and the approximation of pseudo-analytical solution behave similarly to each other.
+
+\import{./text/imgs}{heat_equation.tex}
+
+\newpage
+\section{Discussion}
+
+There are several improvements, which can be added to the grid implementation.
+Firstly, there must be a solution, which will make it possible to add the orientation to the entity type and wouldn't require the generic lambda function.
+It will allow to remove the basis from the entity and compute it statically.
+One of the possible ways to achieve it is to use a type erasure pattern \cite{TypeErasure} for the grid entity.
+Secondly, the implementation of boundary entity traversal can be improved with CUDA streams.
+To traverse the boundaries of the grid a large number of small CUDA kernels should be executed.
+Each of them wouldn't use all resources of the GPU, which will add significant overhead by scheduling and waiting for their execution.
+These kernels can be launched concurrently in multiple CUDA streams, which will improve the performance of the traversal.
+Finally, the heat equation numerical solver doesn't use all methods of grid and grid entity.
+Therefore there is a possibility of hidden performance issues in some of them.
+However, these can be only revealed by using a grid in various numerical solvers.
+
+The implementation of the convolution operator can be improved by considering other algorithms.
+One of such algorithms is the convolution operator, which is based on the Fast Fourier transform.
+It is the algorithm of lower asymptotic time complexity, therefore it can calculate the convolution faster on larger domains.
+The other way to improve the convolution operator implementation is to add support for large kernels.
