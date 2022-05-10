@@ -1,0 +1,22 @@
+{
+	"CPU cache sizes (L1d, L1i, L2, L3) (kiB)": "32, 32, 256, 15360",
+	"CPU cores": "6",
+	"CPU max frequency (MHz)": "3600.000000",
+	"CPU model name": " Intel(R) Core(TM) i7-5820K CPU @ 3.30GHz",
+	"CPU threads per core": "2",
+	"GPU CUDA cores": "1024",
+	"GPU architecture": "5.2",
+	"GPU clock rate (MHz)": "1253.000000",
+	"GPU global memory (GB)": "4.236968",
+	"GPU memory ECC enabled": "0",
+	"GPU memory clock rate (MHz)": "3505.000000",
+	"GPU name": "NVIDIA GeForce GTX 960",
+	"OpenMP enabled": "yes",
+	"OpenMP threads": "12",
+	"architecture": "x86_64",
+	"host name": "gp2.fjfi.cvut.cz",
+	"number of MPI processes": "1",
+	"start time": "Wed May 04 2022, 16:08:42",
+	"system": "Linux",
+	"system release": "5.17.4-arch1-1"
+}

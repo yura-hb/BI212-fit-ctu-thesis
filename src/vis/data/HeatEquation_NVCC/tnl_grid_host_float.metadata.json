@@ -1,0 +1,22 @@
+{
+	"CPU cache sizes (L1d, L1i, L2, L3) (kiB)": "32, 32, 256, 20480",
+	"CPU cores": "8",
+	"CPU max frequency (MHz)": "3200.000000",
+	"CPU model name": " Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz",
+	"CPU threads per core": "2",
+	"GPU CUDA cores": "3840",
+	"GPU architecture": "6.1",
+	"GPU clock rate (MHz)": "1645.000000",
+	"GPU global memory (GB)": "25.635193",
+	"GPU memory ECC enabled": "0",
+	"GPU memory clock rate (MHz)": "4513.000000",
+	"GPU name": "Quadro P6000",
+	"OpenMP enabled": "yes",
+	"OpenMP threads": "32",
+	"architecture": "x86_64",
+	"host name": "gp1.fjfi.cvut.cz",
+	"number of MPI processes": "1",
+	"start time": "Thu May 05 2022, 00:25:11",
+	"system": "Linux",
+	"system release": "5.17.4-arch1-1"
+}
